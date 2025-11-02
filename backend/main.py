@@ -206,7 +206,12 @@ def get_locations(locationIDsBody: RequestLocationsIDModel):
         return JSONResponse(content=jsonable_encoder(locations), status_code=204)
     else:
         return JSONResponse(content=jsonable_encoder(locations), status_code=200)
-
+    
+# get all the roads info thats available in the app-db around a particular location - (lat,long)
+# returns the ratings of all the points lying in the square patch around the given point
+# Example curl:
+# curl -X GET "http://127.0.0.1:8000/getLocations?lat=XYZ&long=ABC
+#      -H "Content-type: application/json"
 @app.get("/getNearbyScores")
 def get_nearby_scores(lat: str = Query(...), 
                       long: str = Query(...)):
@@ -256,6 +261,20 @@ def get_nearby_scores(lat: str = Query(...),
 
     except ValueError:
         return JSONResponse(content=jsonable_encoder({"message": "Invalid co-ordinates!"}), status_code=500)
+    
+# get all the posts related to a particular point on the road thats there in the app db
+# returns a json array of all the posts
+# Example curl:
+# curl -X GET "http://127.0.0.1:8000/getPosts/location_id
+#      -H "Content-type: application/json"
+@app.get("/getPosts/{location_id}")
+def getPosts(location_id: str):
+    posts = db.getPosts(location_id=location_id)
+
+    if len(posts) == 0:
+        return JSONResponse(content=jsonable_encoder(posts), status_code=204)
+    else:
+        return JSONResponse(content=jsonable_encoder(posts), status_code=200)
 
 @app.get("/route")
 async def route(

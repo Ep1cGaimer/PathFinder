@@ -191,6 +191,44 @@ def addPost(location: Location) -> bool:
             conn_pool.putconn(conn)
 
         return success
+    
+def getPosts(location_id: str) -> List[Location]:
+    posts: List[Location] = []
+    cur = conn = None
+    try:
+        conn = conn_pool.getconn()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        cur.execute("SELECT * FROM posts WHERE location_id = %s;", (location_id,))
+
+        rows = cur.fetchall()
+
+        for i in range(0, len(rows)):
+            row = rows[i]
+            location: Location = Location(
+                location_id=location_id,
+                images_dir=row['images_dir'],
+                images=row['images'],
+                text_descr=row['text_descr'],
+                surface_damage=row['surface_damage'],
+                traffic_safety_risk=row['traffic_safety_risk'],
+                ride_discomfort=row['ride_discomfort'],
+                waterlogging=row['waterlogging'],
+                urgency_for_repair=row['urgency_for_repair'],
+                posted_by=row['posted_by'],
+                created_at=row['created_at']
+            )
+
+            posts.append(location)
+    except Exception as e:
+        print("Error: ", e)
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn_pool.putconn(conn)
+        
+        return posts
 
 def getLocation(id: str) -> Location:
     # if req fails or any untoward situation, location_id set to 'None' will be returned 'finally' which 
