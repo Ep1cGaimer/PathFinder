@@ -9,6 +9,12 @@ import backend_llm
 import aiofiles
 import asyncio
 
+# we need some math ;)
+import numpy as np
+
+# for finding cosines in get_nearby_scores()
+import math
+
 # requests library to make api calls to Google Roads API
 import requests
 
@@ -135,18 +141,19 @@ async def add_post(text_descr: str = Form(...),
     response = requests.get(url=url)
 
     data = response.json()
-    location_id = data["snappedPoints"][0]["placeId"]
+    if len(data['snappedPoints']) != 0:
+        location_id = data["snappedPoints"][0]["placeId"]
     
-    newLocation = Location(location_id=location_id,
-                           images_dir=images_dir,
-                           images = ct,
-                           text_descr=text_descr,
-                           surface_damage=scores['surface_damage'],
-                           traffic_safety_risk=scores['traffic_safety_risk'],
-                           ride_discomfort=scores['ride_discomfort'],
-                           waterlogging=scores['waterlogging'],
-                           urgency_for_repair=scores['urgency_for_repair'],
-                           posted_by='Sa12')
+        newLocation = Location(location_id=location_id,
+                            images_dir=images_dir,
+                            images = ct,
+                            text_descr=text_descr,
+                            surface_damage=scores['surface_damage'],
+                            traffic_safety_risk=scores['traffic_safety_risk'],
+                            ride_discomfort=scores['ride_discomfort'],
+                            waterlogging=scores['waterlogging'],
+                            urgency_for_repair=scores['urgency_for_repair'],
+                            posted_by='Sa12')
     
     done = db.addPost(newLocation)
 
@@ -184,6 +191,56 @@ def get_locations(locationIDsBody: RequestLocationsIDModel):
         return JSONResponse(content=jsonable_encoder(locations), status_code=204)
     else:
         return JSONResponse(content=jsonable_encoder(locations), status_code=200)
+
+@app.get("/getNearbyScores")
+def get_nearby_scores(lat: str = Query(...), 
+                      long: str = Query(...)):
+    try:
+        float_lat = float(lat)
+        float_long = float(long)
+
+        ct = 0
+        locations = set()
+        locationIds = set()
+        for la in np.arange(float_lat-0.005, float_lat+0.005, 0.0005):
+            long_delta = 1/(111.32 * math.cos(math.radians(la)))
+            long_step = long_delta*0.05
+            for lo in np.arange(float_long-long_delta, float_long+long_delta, long_step):
+                if ct < 100:
+                    locations.add(str(la)+","+str(lo))
+                    ct += 1
+                else:
+                    points = "|".join(locations)
+                    url = f"https://roads.googleapis.com/v1/nearestRoads?points={points}&key={GOOGLE_ROADS_API_KEY}"
+
+                    data = requests.get(url=url).json()
+
+                    snappedPoints = data['snappedPoints']
+                    for i in range(0, len(snappedPoints)):
+                        locationIds.add(snappedPoints[i]['placeId'])
+                    locations = set()
+                    ct = 0
+        
+        if len(locations) != 0:
+            points = "|".join(locations)
+            url = f"https://roads.googleapis.com/v1/nearestRoads?points={points}&key={GOOGLE_ROADS_API_KEY}"
+
+            data = requests.get(url=url).json()
+
+            # if snappedPoints not found, return empty array instead
+            snappedPoints = data.get('snappedPoints', [])
+            for i in range(0, len(snappedPoints)):
+                locationIds.add(snappedPoints[i]['placeId'])
+
+        locations = db.getLocations(locationIds)
+
+        if len(locations) == 0:
+            return JSONResponse(content=jsonable_encoder(locations), status_code=204)
+        else:
+            return JSONResponse(content=jsonable_encoder(locations), status_code=200)     
+
+    except ValueError:
+        return JSONResponse(content=jsonable_encoder({"message": "Invalid co-ordinates!"}), status_code=500)
 
 @app.get("/route")
 async def route(
