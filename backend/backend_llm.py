@@ -4,6 +4,7 @@ from google import genai
 from google.genai import types
 from dotenv import load_dotenv
 from typing import List
+import backend_vision
 
 load_dotenv()
 API_KEY = os.getenv("GEMINI_API_KEY")
@@ -64,6 +65,6 @@ def get_scores(images: List[dict], text_descr: str) -> dict:
     )
 
     # print(res.text)
-
+    
     return json.loads(sanitize_gemini_output(res.text))
 

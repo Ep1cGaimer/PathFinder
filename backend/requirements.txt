@@ -9,3 +9,6 @@ python-multipart
 google-genai
 psycopg2-binary
 requests
+tensorflow==2.17 
+opencv-python 
+numpy

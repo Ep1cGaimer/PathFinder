@@ -40,17 +40,19 @@ mobile/.env
 backend/uploads
 
 # typescript
-*.tsbuildinfo
+mobile/*.tsbuildinfo/
 
 app-example
 
 #build files
 
+mobile/android/
 android/
 
 # python
-__pycache__/
-*.pyc
+backend/__pycache__/
+backend/*.pyc
 
 # IDE
 .vscode/
+.venv/

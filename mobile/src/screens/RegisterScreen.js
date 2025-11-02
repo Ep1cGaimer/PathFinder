@@ -2,6 +2,8 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityInd
 import React, { useState } from 'react'
 import { useRouter } from 'expo-router';
 
+const BACKEND_URL = 'http://10.0.2.2:8000';
+
 const RegisterScreen = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -30,21 +32,47 @@ const RegisterScreen = () => {
     try {
       const auth = await import('@react-native-firebase/auth');
       const userCredential = await auth.default().createUserWithEmailAndPassword(email, password);
-
-      await userCredential.user.updateProfile({
+      const user = userCredential.user;
+      await user.updateProfile({
         displayName: name,
       });
-
-      Alert.alert(
-        'Success',
-        'Account created successfully!',
-        [
-          {
-            text: 'OK',
-            onPress: () => router.replace("/home")
-          }
-        ]
-      );
+      const res = await fetch(`${BACKEND_URL}/createUser`,{
+        method: "POST",
+        headers: {
+          "Content-Type":"application/json",
+        },
+        body: JSON.stringify({
+          id: user.uid,
+          name: name,
+          reputation: 4, //the default reputation will be of 4 (out of 10) 
+          created_at: new Date().toISOString(),
+        }),
+      });
+      if(res.ok){
+          Alert.alert(
+          'Success',
+          'Account created successfully!',
+          [
+            {
+              text: 'OK',
+              onPress: () => router.replace("/home")
+            }
+          ]
+        );
+      }
+      else{
+          Alert.alert(
+          `Failed ${res.status}`,
+          'Account not stored in backend',
+          [
+            {
+              text: 'Try Again',
+              onPress: () => router.replace("/register")
+            }
+          ]
+        );
+      }
+      
     } catch (error) {
       let errorMessage = 'An error occurred during registration';
 

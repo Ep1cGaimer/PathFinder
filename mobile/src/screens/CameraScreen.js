@@ -96,7 +96,7 @@ export default function CameraScreen() {
           formData.append("longitude", currentLocation.longitude.toString());
         }
 
-        fetch(`${BACKEND_URL}/upload`, {
+        fetch(`${BACKEND_URL}/addPost`, {
             method: 'POST',
             body: formData,
             headers: {

@@ -6,8 +6,12 @@ from typing import List
 import uuid
 import os
 import backend_llm
+import backend_vision
 import aiofiles
 import asyncio
+from dotenv import load_dotenv
+
+load_dotenv() 
 
 # we need some math ;)
 import numpy as np
@@ -37,7 +41,7 @@ from database import db
 class RequestUserModel(BaseModel):
     id: str
     name: str
-    reputation: str
+    reputation: int  #using integer as a reputation measure for easier calcualtion in the future.
     created_at: str | None = None
 
 class RequestLocationsIDModel(BaseModel):
@@ -54,13 +58,23 @@ app.add_middleware(
 )
 
 try:
-    GOOGLE_ROADS_API_KEY = os.environ['GOOGLE_ROADS_API_KEY'] # set your environment variable in cmd using 'set DB_PASSWORD=roadsAPI123' before running it
+    GOOGLE_ROADS_API_KEY = os.getenv("GOOGLE_API_KEY") #Using .env for consistent results
 except KeyError:
-    raise RuntimeError("Required environment variable GOOGLE_ROADS_API_KEY not found on your system. Set it. It is needed to get location_id from latitude/longitude")
+    raise RuntimeError("Check project environment variables. Set it. It is needed to get location_id from latitude/longitude")
 
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
-GOOGLE_ROADS_API_KEY = os.getenv("GOOGLE_ROADS_API_KEY", "")
+GOOGLE_ROADS_API_KEY = os.getenv("GOOGLE_API_KEY", "") #keep naming as google api key for consistnecy
+
+
+def combine_scores(scores_llm, scores_vision):
+    scores = {}
+    for key in set(scores_llm.keys()) | set(scores_vision.keys()):
+        v1 = scores_llm.get(key, 0)
+        v2 = scores_vision.get(key, 0)
+        scores[key] = (v1 + v2) / 2
+
+    return scores
 
 # endpoint for creating a new user 
 # Example curl:
@@ -131,8 +145,9 @@ async def add_post(text_descr: str = Form(...),
 
             ct += 1
 
-    scores = await asyncio.to_thread(backend_llm.get_scores, images, text_descr)
-
+    scores_llm = await asyncio.to_thread(backend_llm.get_scores, images, text_descr)
+    scores_vision = await asyncio.to_thread(backend_vision.get_scores_cv,images,text_descr)
+    scores = combine_scores(scores_llm,scores_vision)
     # ATTENTION!
     # Google Maps Road API to convert given latitude-longitude to location_id needed here!
     # This part is pending (TODO!!)

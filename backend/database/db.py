@@ -12,13 +12,17 @@ from dataclasses import asdict
 
 # for specifying List return type in functions
 from typing import List
+from dotenv import load_dotenv
+
+load_dotenv()
 
 DB_HOST = "localhost"
 DB_NAME = "pathfinder_db"
 DB_USER = "postgres"
 
 try:
-    DB_PASSWORD = os.environ['DB_PASSWORD'] # set your environment variable in cmd using 'set DB_PASSWORD=passwd123' before running it
+    DB_PASSWORD = os.getenv("DB_PASSWORD") #Using project env rather than system env.
+    print("Databse authenticated successfully.")
 except KeyError:
     raise RuntimeError("Required environment variable DB_PASSWORD not found on your system. Set it.")
 
