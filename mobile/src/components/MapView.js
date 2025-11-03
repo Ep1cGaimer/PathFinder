@@ -6,8 +6,10 @@ import * as Location from 'expo-location'
 export default function CustomMapView() {
   const [location,setLocation] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
+  const [center, setCenter] = useState(null);
   const [destination, setDestination] = useState(null);
   const [routeCoords, setRouteCoords] = useState([]);
+  const [points, setPoints] = useState([]);
   const API_BASE_URL ='http://10.0.2.2:8000';
 
   useEffect(() => {
@@ -23,6 +25,18 @@ export default function CustomMapView() {
     })();
   },[]);
 
+  useEffect(() => {
+    let newPoints = [];
+    fetch(`${API_BASE_URL}/getNearbyScores?lat=${center.latitude}&long=${center.longitude}`)
+    .then(res => res.json())
+    .then(data => {
+      locations = data.locations;
+      for (let index = 0 ; index < locations.length; index++) {
+        newPoints.push(locations[index]);
+      }        
+    })
+    setPoints(newPoints)
+  }, [center])
 
   useEffect(() => {
     if(destination && location){
@@ -80,6 +94,12 @@ export default function CustomMapView() {
       region={mapRegion}
       showsUserLocation={true}
       showsMyLocationButton={true}
+      onRegionChangeComplete={(region) =>
+        setCenter({
+          latitude: region.latitude,
+          longitude: region.longitude
+        })
+      }
       onLongPress={(event) => {
         const { latitude, longitude } = event.nativeEvent.coordinate;
         setDestination({ latitude, longitude });
@@ -106,6 +126,21 @@ export default function CustomMapView() {
           strokeColor="blue"
           strokeWidth={4}
         />
+      )}     
+      {points.length > 0 && (
+        points.map((point) => {
+            color = ""
+            if (point.overall_score >= 90) color = "red"
+            else if (point.overall_score >= 75) color = "orange"
+            else if (point.overall_score >= 25) color = "blue"
+            else color = "green"
+
+            return <Marker
+              key={point.location_id}
+              coordinate={{latitude: point.latitude, longitude: point.longitude}}
+              pinColor={color}
+            />
+        })
       )}
     </MapView>
   );
