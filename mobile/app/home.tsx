@@ -15,6 +15,13 @@ export default function HomeScreen() {
     origin: "",
     destination: ""
   });
+  const [goToCurrentLocation, setGoToCurrentLocation] = useState(false);
+
+  const handleLocateMe = () => {
+    // toggling triggers re-render and signals map to center on location
+    setGoToCurrentLocation(prev => !prev);
+  };
+
 
   useEffect(() => {
     (async ()=> {
@@ -90,9 +97,11 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>PathFinder</Text>
+        <TouchableOpacity style={styles.userIconButton}>
+          <Ionicons name="person-circle-outline" size={28} color="#fff" />
+        </TouchableOpacity>
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={24} color="black" />
+          <Ionicons name="log-out-outline" size={24} color="#fff" />
         </TouchableOpacity>
       </View>
       <SearchBar
@@ -101,12 +110,20 @@ export default function HomeScreen() {
         destination={destination}
         onDestinationChange={setDestination}
         onGetRoute={handleGetRoute}
-        
+
       />
-      
-      <CustomMapView routeRequest={routeRequest}/>
+
+      <CustomMapView
+      routeRequest={routeRequest}
+      goToCurrentLocation={goToCurrentLocation}
+      />
+
+      <TouchableOpacity style={styles.locationButton} onPress={handleLocateMe}>
+        <Ionicons name="locate" size={24} color="#000" />
+      </TouchableOpacity>
+
       <TouchableOpacity style={styles.cameraButton} onPress={openCamera}>
-        <Ionicons name="camera" size={28} color="white" />
+        <Ionicons name="camera" size={28} color="#fff" />
       </TouchableOpacity>
     </View>
   );
@@ -115,39 +132,73 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#000',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    marginTop: 50,
-    marginBottom: 10,
+    paddingTop: 50,
+    paddingBottom: 15,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    flex: 1,
-    textAlign: 'center',
+  userIconButton: {
+    padding: 10,
+    backgroundColor: '#000',
+    borderRadius: 25,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 3,
+    elevation: 3,
   },
   logoutButton: {
-    padding: 8,
-  },
-  cameraButton: {
-    position: 'absolute',
-    bottom: 30,
-    right: 30,
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: '#007BFF',
-    justifyContent: 'center',
-    alignItems: 'center',
+    padding: 10,
+    backgroundColor: '#000',
+    borderRadius: 25,
     shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 0, height: 3 },
-    shadowRadius: 4,
-    elevation: 5,
+    shadowOpacity: 0.2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 3,
+    elevation: 3,
   },
+  locationButton: {
+  position: 'absolute',
+  bottom: 120, // just above the camera button (70 height + ~20px gap)
+  right: 30,
+  width: 70,
+  height: 70,
+  borderRadius: 35,
+  backgroundColor: '#fff',
+  justifyContent: 'center',
+  alignItems: 'center',
+  shadowColor: '#000',
+  shadowOpacity: 0.3,
+  shadowOffset: { width: 0, height: 3 },
+  shadowRadius: 4,
+  elevation: 5,
+},
+
+cameraButton: {
+  position: 'absolute',
+  bottom: 30,
+  right: 30,
+  width: 70,
+  height: 70,
+  borderRadius: 35,
+  backgroundColor: '#000',
+  justifyContent: 'center',
+  alignItems: 'center',
+  shadowColor: '#000',
+  shadowOpacity: 0.3,
+  shadowOffset: { width: 0, height: 3 },
+  shadowRadius: 4,
+  elevation: 5,
+},
+
 });

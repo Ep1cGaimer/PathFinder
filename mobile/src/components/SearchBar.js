@@ -4,7 +4,7 @@ import {View, TextInput, TouchableOpacity, Text, StyleSheet,FlatList} from 'reac
 export default function SearchBar({origin,onOriginChange,destination,onDestinationChange,onGetRoute}){
     const [originSuggestions, setOriginSuggestions] = useState([]);
     const [destinationSuggestions, setDestinationSuggestions] = useState([]);
-    const API_BASE_URL = 'https://3a14e8e59c23.ngrok-free.app';
+    const API_BASE_URL = 'http://10.181.237.24:8000';
     const fetchSuggestions = async (text,field) =>{
         if(text.length < 3){
             field == 'origin' ? setOriginSuggestions([]) : setDestinationSuggestions([]);
@@ -23,89 +23,129 @@ export default function SearchBar({origin,onOriginChange,destination,onDestinati
     };
     return(
         <View style={styles.searchContainer}>
-            <TextInput
-                style={styles.input}
-                placeholder="From"
-                value={origin}
-                onChangeText={(text) =>{
-                    onOriginChange(text);
-                    fetchSuggestions(text,'origin');
-                }}
-            />
-            {originSuggestions.length > 0 &&(
-                <FlatList
-                data={originSuggestions}
-                keyExtractor={(item) => item.id}
-                renderItem={({item})=>(
-                    <TouchableOpacity
-                    style={styles.suggestionItem}
-                    onPress={()=>{
-                        onOriginChange(item.description);
-                        setOriginSuggestions([]);
+            <View style={styles.inputWrapper}>
+                <TextInput
+                    style={styles.input}
+                    placeholder="From"
+                    placeholderTextColor="#999"
+                    value={origin}
+                    onChangeText={(text) =>{
+                        onOriginChange(text);
+                        fetchSuggestions(text,'origin');
                     }}
-                    >
-                    <Text>{item.description}</Text>
-                    </TouchableOpacity>
-                )}
                 />
-            )}
-            <TextInput
-                style={styles.input}
-                placeholder="To"
-                value={destination}
-                onChangeText={(text) => {
-                    onDestinationChange(text);
-                    fetchSuggestions(text,'destination');
-                }}
-            />
-            {destinationSuggestions.length > 0 &&(
-                <FlatList
-                data={destinationSuggestions}
-                keyExtractor={(item) => item.id}
-                renderItem={({item})=>(
-                    <TouchableOpacity
-                    style={styles.suggestionItem}
-                    onPress={()=>{
-                        onDestinationChange(item.description);
-                        setDestinationSuggestions([]);
-                        onGetRoute();
+                {originSuggestions.length > 0 &&(
+                    <View style={styles.suggestionsContainer}>
+                        <FlatList
+                        data={originSuggestions}
+                        keyExtractor={(item) => item.id}
+                        renderItem={({item})=>(
+                            <TouchableOpacity
+                            style={styles.suggestionItem}
+                            onPress={()=>{
+                                onOriginChange(item.description);
+                                setOriginSuggestions([]);
+                            }}
+                            >
+                            <Text>{item.description}</Text>
+                            </TouchableOpacity>
+                        )}
+                        />
+                    </View>
+                )}
+            </View>
+
+            <View style={styles.inputWrapper}>
+                <TextInput
+                    style={styles.input}
+                    placeholder="To"
+                    placeholderTextColor="#999"
+                    value={destination}
+                    onChangeText={(text) => {
+                        onDestinationChange(text);
+                        fetchSuggestions(text,'destination');
                     }}
-                    >
-                    <Text>{item.description}</Text>
-                    </TouchableOpacity>
-                )}
                 />
-            )}
-            
+                {destinationSuggestions.length > 0 &&(
+                    <View style={styles.suggestionsContainer}>
+                        <FlatList
+                        data={destinationSuggestions}
+                        keyExtractor={(item) => item.id}
+                        renderItem={({item})=>(
+                            <TouchableOpacity
+                            style={styles.suggestionItem}
+                            onPress={()=>{
+                                onDestinationChange(item.description);
+                                setDestinationSuggestions([]);
+                                onGetRoute();
+                            }}
+                            >
+                            <Text>{item.description}</Text>
+                            </TouchableOpacity>
+                        )}
+                        />
+                    </View>
+                )}
+            </View>
         </View>
     );
 }
 
  const styles = StyleSheet.create({
       searchContainer: {
-        padding: 10,
-        backgroundColor: '#fff',
+        position: 'absolute',
+        top: 110,
+        left: 12,
+        right: 12,
+        zIndex: 5,
+        backgroundColor: 'transparent',
+      },
+      inputWrapper: {
+        marginBottom: 8,
       },
       input: {
-        height: 40,
-        borderColor: 'gray',
-        borderWidth: 1,
-        marginBottom: 10,
-        paddingHorizontal: 10,
-       borderRadius: 5,
+        height: 52,
+        backgroundColor: '#fff',
+        paddingHorizontal: 16,
+        borderRadius: 12,
+        fontSize: 15,
+        color: '#000',
+        shadowColor: '#000',
+        shadowOpacity: 0.15,
+        shadowOffset: { width: 0, height: 3 },
+        shadowRadius: 6,
+        elevation: 5,
+      },
+      suggestionsContainer: {
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        marginTop: 8,
+        maxHeight: 200,
+        shadowColor: '#000',
+        shadowOpacity: 0.15,
+        shadowOffset: { width: 0, height: 3 },
+        shadowRadius: 6,
+        elevation: 5,
       },
       button: {
-        backgroundColor: '#007BFF',
-        padding: 10,
-        borderRadius: 5,
+        backgroundColor: '#000',
+        padding: 15,
+        borderRadius: 12,
         alignItems: 'center',
+        marginTop: 4,
+        shadowColor: '#000',
+        shadowOpacity: 0.15,
+        shadowOffset: { width: 0, height: 2 },
+        shadowRadius: 5,
+        elevation: 4,
       },
       buttonText: {
-        color: 'white',
+        color: '#fff',
         fontWeight: 'bold',
+        fontSize: 16,
     },
     suggestionItem: {
-    padding: 10,
+    padding: 15,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
     },

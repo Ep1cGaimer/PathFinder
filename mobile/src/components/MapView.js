@@ -3,14 +3,14 @@ import { StyleSheet, Alert } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE, Polyline, Circle } from 'react-native-maps';
 import * as Location from 'expo-location';
 
-export default function CustomMapView({ routeRequest }) {
+export default function CustomMapView({ routeRequest, goToCurrentLocation }) {
   const [location, setLocation] = useState(null);
   const [points, setPoints] = useState([]);
   const [center, setCenter] = useState({ latitude: 0.0, longitude: 0.0 });
   const [routeCoords, setRouteCoords] = useState([]);
   const mapRef = useRef(null);
 
-  const API_BASE_URL = 'https://3a14e8e59c23.ngrok-free.app';
+  const API_BASE_URL = 'http://10.181.237.24:8000';
   // const FIXED_CENTER = { latitude: 0.0, longitude: 0.0 };
 
   // ✅ Get current location
@@ -110,6 +110,22 @@ export default function CustomMapView({ routeRequest }) {
       });
     }
   },[routeCoords]);
+
+  useEffect(() => {
+    if (goToCurrentLocation && location && mapRef.current) {
+      const { latitude, longitude } = location.coords;
+      mapRef.current.animateToRegion(
+        {
+          latitude,
+          longitude,
+          latitudeDelta: 0.02,
+          longitudeDelta: 0.02,
+        },
+        1000 // smooth animation duration (1 second)
+      );
+    }
+  }, [goToCurrentLocation]);
+
   return (
     <MapView
       ref={mapRef}
@@ -117,7 +133,7 @@ export default function CustomMapView({ routeRequest }) {
       provider={PROVIDER_GOOGLE}
       initialRegion={defaultRegion}
       showsUserLocation={true}
-      showsMyLocationButton={true}
+      showsMyLocationButton={false}
       onRegionChangeComplete={(region) => setCenter({
         latitude: region.latitude,
         longitude: region.longitude

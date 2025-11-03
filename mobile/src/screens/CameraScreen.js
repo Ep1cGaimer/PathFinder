@@ -4,7 +4,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 
-const BACKEND_URL = 'http://10.0.2.2:8000';
+const BACKEND_URL = 'http://10.181.237.24:8000';
 
 export default function CameraScreen() {
     const router = useRouter();
@@ -144,7 +144,7 @@ export default function CameraScreen() {
             facing="back"
             onCameraReady={()=> setIsCameraReady(true)}
             />
-            <View style={styles.buttonContainerok }>
+            <View style={styles.buttonContainer}>
                 <TouchableOpacity
                 style={styles.button}
                 onPress={takePicture}
