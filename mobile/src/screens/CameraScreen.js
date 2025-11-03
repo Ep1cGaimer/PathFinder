@@ -15,6 +15,7 @@ export default function CameraScreen() {
     const [step, setStep] = useState(0); 
     const [desc, setDesc] = useState("");
     const [photo, setPhoto] = useState(null);
+    const [isCameraReady, setIsCameraReady] = useState(false);
 
    
 
@@ -115,23 +116,12 @@ export default function CameraScreen() {
             });
     };
 
-    const renderCamera = () => {
-        return (
-            <View style={styles.container}>
-                <CameraView style={styles.camera} ref={cameraRef} facing="back" />
-                <View style={styles.buttonContainer}>
-                    <TouchableOpacity style={styles.button} onPress={takePicture}>
-                        <View style={styles.buttonInner}></View>
-                    </TouchableOpacity>
-                </View>
-            </View>
-        );
-    }
 
-    const renderDescriptionInput = () => {
-        return(
+    //renders two screens one for the camera and the second one for the description
+    if(step === 1){
+        return (
             <View style={styles.descriptionContainer}>
-                <Text style={styles.header}>Enter a description for the photo provided (optional)</Text>
+                <Text style={styles.header}>Enter a description for the photo provided </Text>
                 <TextInput
                     style={styles.textInput}
                     value={desc}
@@ -141,16 +131,29 @@ export default function CameraScreen() {
                     numberOfLines={4}
                 />
                 <TouchableOpacity style={styles.submitButton} onPress={addDescription}>
-                    <Text style={styles.submitButtonText}>Submit Photo and Description</Text>
+                    <Text style={styles.submitButtonText}>Submit Photo and description</Text>
                 </TouchableOpacity>
             </View>
-        );
+        )
     }
-    //renders two screens one for the camera and the second one for the description
-    return (
+    return(
         <View style={styles.container}>
-            {step === 0 && renderCamera()}
-            {step === 1 && renderDescriptionInput()} 
+            <CameraView
+            style={styles.camera}
+            ref={cameraRef}
+            facing="back"
+            onCameraReady={()=> setIsCameraReady(true)}
+            />
+            <View style={styles.buttonContainerok }>
+                <TouchableOpacity
+                style={styles.button}
+                onPress={takePicture}
+                disabled={!isCameraReady}
+                >
+                    <View style = {styles.buttonInner}></View>
+                </TouchableOpacity>
+            </View>
+
         </View>
     );
 }
