@@ -9,6 +9,7 @@ python-multipart
 google-genai
 psycopg2-binary
 requests
-tensorflow==2.17 
+tensorflow==2.20.0
 opencv-python 
 numpy
+pillow-avif-plugin

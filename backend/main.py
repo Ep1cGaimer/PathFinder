@@ -11,6 +11,10 @@ import aiofiles
 import asyncio
 from dotenv import load_dotenv
 
+from dataclasses import dataclass, asdict
+
+import datetime
+
 load_dotenv() 
 
 # we need some math ;)
@@ -99,7 +103,7 @@ def search_user(name: str):
     users = db.searchForUser(name)
 
     if len(users) == 0:
-        return JSONResponse(content=jsonable_encoder(users), status_code=204)
+        return JSONResponse(content=jsonable_encoder({"message": "No users found"}), status_code=200)
     else:
         return JSONResponse(content=jsonable_encoder(users), status_code=200)
 
@@ -203,7 +207,7 @@ def get_locations(locationIDsBody: RequestLocationsIDModel):
     locations = db.getLocations(locationIds)
 
     if len(locations) == 0:
-        return JSONResponse(content=jsonable_encoder(locations), status_code=204)
+        return JSONResponse(content=jsonable_encoder({"message": "No locations found"}), status_code=200)
     else:
         return JSONResponse(content=jsonable_encoder(locations), status_code=200)
     
@@ -215,29 +219,46 @@ def get_locations(locationIDsBody: RequestLocationsIDModel):
 @app.get("/getNearbyScores")
 def get_nearby_scores(lat: str = Query(...), 
                       long: str = Query(...)):
+    @dataclass
+    class NewLocationModel:
+        location_id: str 
+        lat: float
+        long: float
+        surface_damage: float
+        traffic_safety_risk: float 
+        ride_discomfort: float 
+        waterlogging: float 
+        urgency_for_repair: float 
+        created_at: datetime.datetime 
+
+    placeid_loc_mapping = {}
     try:
         float_lat = float(lat)
         float_long = float(long)
 
         ct = 0
         locations = set()
+        locations_to_send = {"locations": []}
         locationIds = set()
         for la in np.arange(float_lat-0.005, float_lat+0.005, 0.0005):
             long_delta = 1/(111.32 * math.cos(math.radians(la)))
             long_step = long_delta*0.05
             for lo in np.arange(float_long-long_delta, float_long+long_delta, long_step):
                 if ct < 100:
-                    locations.add(str(la)+","+str(lo))
+                    locations.add(f"{la:.6f},{lo:.6f}")
                     ct += 1
                 else:
                     points = "|".join(locations)
                     url = f"https://roads.googleapis.com/v1/nearestRoads?points={points}&key={GOOGLE_ROADS_API_KEY}"
 
                     data = requests.get(url=url).json()
+                    # print(data)
+                    # data = {}
 
-                    snappedPoints = data['snappedPoints']
+                    snappedPoints = data.get('snappedPoints', [])
                     for i in range(0, len(snappedPoints)):
                         locationIds.add(snappedPoints[i]['placeId'])
+                        placeid_loc_mapping.update({snappedPoints[i]['placeId']: snappedPoints[i]['location']})
                     locations = set()
                     ct = 0
         
@@ -252,12 +273,29 @@ def get_nearby_scores(lat: str = Query(...),
             for i in range(0, len(snappedPoints)):
                 locationIds.add(snappedPoints[i]['placeId'])
 
-        locations = db.getLocations(locationIds)
+            locations = db.getLocations(locationIds)
+
+            for i in range(0, len(locations)):
+                sum_scores=float(locations[i]['surface_damage'])+float(locations[i]['traffic_safety_risk'])+float(locations[i]['ride_discomfort'])+float(locations[i]['waterlogging'])+float(locations[i]['urgency_for_repair'])
+                newLocation = NewLocationModel(
+                    location_id=locations[i]['location_id'],
+                    lat=float(placeid_loc_mapping[locations[i]['location_id']]['location']['latitude']),
+                    long=float(placeid_loc_mapping[locations[i]['location_id']]['location']['longitude']),
+                    surface_damage=float(locations[i]['surface_damage']),
+                    traffic_safety_risk=float(locations[i]['traffic_safety_risk']),
+                    ride_discomfort=float(locations[i]['ride_discomfort']),
+                    waterlogging=float(locations[i]['waterlogging']),
+                    urgency_for_repair=float(locations[i]['urgency_for_repair']),
+                    created_at=locations[i]['created_at'],
+                    overall_score=sum_scores/5
+                )
+
+                locations_to_send['locations'].append(asdict(newLocation))
 
         if len(locations) == 0:
-            return JSONResponse(content=jsonable_encoder(locations), status_code=204)
+            return JSONResponse(content=jsonable_encoder({"message": "No locations found"}), status_code=200)
         else:
-            return JSONResponse(content=jsonable_encoder(locations), status_code=200)     
+            return JSONResponse(content=jsonable_encoder(locations_to_send), status_code=200)     
 
     except ValueError:
         return JSONResponse(content=jsonable_encoder({"message": "Invalid co-ordinates!"}), status_code=500)
@@ -272,7 +310,7 @@ def getPosts(location_id: str):
     posts = db.getPosts(location_id=location_id)
 
     if len(posts) == 0:
-        return JSONResponse(content=jsonable_encoder(posts), status_code=204)
+        return JSONResponse(content=jsonable_encoder({"message": "No posts found"}), status_code=200)
     else:
         return JSONResponse(content=jsonable_encoder(posts), status_code=200)
 
