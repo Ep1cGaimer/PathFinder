@@ -6,7 +6,7 @@ import * as Location from 'expo-location'
 export default function CustomMapView({routeRequest}) {
   const [location,setLocation] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
-  const [center, setCenter] = useState(null);
+  const [center, setCenter] = useState({latitude: 0.0, longitude: 0.0});
   const [destination, setDestination] = useState(null);
   const [routeCoords, setRouteCoords] = useState([]);
   const [points, setPoints] = useState([]);
