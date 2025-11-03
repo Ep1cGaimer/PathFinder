@@ -1,43 +1,68 @@
-import React, { useEffect, useState, useRef} from 'react';
-import { StyleSheet, Alert} from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE,Polyline } from 'react-native-maps';
-import * as Location from 'expo-location'
+import React, { useEffect, useState, useRef } from 'react';
+import { StyleSheet, Alert } from 'react-native';
+import MapView, { Marker, PROVIDER_GOOGLE, Polyline, Circle } from 'react-native-maps';
+import * as Location from 'expo-location';
 
-export default function CustomMapView({routeRequest}) {
-  const [location,setLocation] = useState(null);
-  const [errorMsg, setErrorMsg] = useState(null);
-  const [center, setCenter] = useState({latitude: 0.0, longitude: 0.0});
-  const [destination, setDestination] = useState(null);
-  const [routeCoords, setRouteCoords] = useState([]);
+export default function CustomMapView({ routeRequest }) {
+  const [location, setLocation] = useState(null);
   const [points, setPoints] = useState([]);
+  const [center, setCenter] = useState({ latitude: 0.0, longitude: 0.0 });
+  const [routeCoords, setRouteCoords] = useState([]);
   const mapRef = useRef(null);
-  const API_BASE_URL ='http://10.0.2.2:8000';
 
+  const API_BASE_URL = 'https://3a14e8e59c23.ngrok-free.app';
+  // const FIXED_CENTER = { latitude: 0.0, longitude: 0.0 };
+
+  // ✅ Get current location
   useEffect(() => {
-    (async() => {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if(status !== 'granted'){
-        setErrorMsg('Provide access to location premission to continue');
-        Alert.alert('Location Permission', 'Permission to access location was denied');
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission denied', 'Enable location permissions to continue.');
         return;
       }
-      let location = await Location.getCurrentPositionAsync({});
-      setLocation(location);
+      const loc = await Location.getCurrentPositionAsync({});
+      setLocation(loc);
+      setCenter({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
     })();
-  },[]);
+  }, []);
 
+  // ✅ Fetch points (with lat/long mapping)
   useEffect(() => {
-    let newPoints = [];
+    if (center.latitude === 0.0 && center.longitude === 0.0) return;
     fetch(`${API_BASE_URL}/getNearbyScores?lat=${center.latitude}&long=${center.longitude}`)
-    .then(res => res.json())
-    .then(data => {
-      locations = data.locations;
-      for (let index = 0 ; index < locations.length; index++) {
-        newPoints.push(locations[index]);
-      }        
-    })
-    setPoints(newPoints)
-  }, [center])
+      .then(res => res.json())
+      .then(data => {
+        if (data.locations && Array.isArray(data.locations)) {
+          const validPoints = data.locations.filter(
+            p => typeof p.lat === 'number' && typeof p.long === 'number'
+          );
+          setPoints(validPoints);
+          console.log(`✅ Loaded ${validPoints.length} points`);
+        }
+      })
+      .catch(err => console.error('Error fetching points:', err));
+  }, [center]);
+
+  // ✅ Fetch route if requested
+  // useEffect(() => {
+  //   if (routeRequest.origin !== "" && routeRequest.destination !=="") {
+  //     fetch(
+  //       `${API_BASE_URL}/route?origin=${encodeURIComponent(routeRequest.origin)}&destination=${encodeURIComponent(routeRequest.destination)}`
+  //     )
+  //       .then(res => res.json())
+  //       .then(data => {
+  //         console.log(data);
+  //         if (data.polyline?.length > 0) {
+  //           const coords = data.polyline.map(([lat, lng]) => ({ latitude: lat, longitude: lng }));
+  //           setRouteCoords(coords);
+  //         } else {
+  //           Alert.alert('Error', 'Could not find a route.');
+  //         }
+  //       })
+  //       .catch(err => console.error('Error fetching route:', err));
+  //   }
+  // }, [routeRequest]);
 
   useEffect(() => {
     if(routeRequest.origin !== "" && routeRequest.destination !== ""){
@@ -45,8 +70,12 @@ export default function CustomMapView({routeRequest}) {
       const destination = routeRequest.destination;
       fetch(`${API_BASE_URL}/route?origin=${encodeURIComponent(origin)}&destination=${
       encodeURIComponent(destination)}`)
-      .then(res => res.json())
+      .then(res => {
+        console.log(res)
+        return res.json()
+    })
       .then(data => {
+        console.log(data)
         if( data.polyline && data.polyline.length > 0){
           const coords = data.polyline.map(([lat,lng]) => ({
             latitude: lat,
@@ -66,26 +95,13 @@ export default function CustomMapView({routeRequest}) {
 
     }
   },[routeRequest]);
-  //Accurate Location, but has some viewing issues and performance issues, disabled temporarily
-  //test comment
 
-
-  // Location.watchPositionAsync(
-  //   {
-  //     accuracy:Location.Accuracy.High,
-  //     timeInterval:1000,
-  //     distanceInterval:1,
-  //   },
-  //   (location) =>{
-  //     setLocation(location);
-  //   }
-  // );
   const defaultRegion = {
-              latitude: 0.0,
-              longitude: 0.0,
-              latitudeDelta: 0.05,
-              longitudeDelta: 0.05,
-            };
+    latitude: 0.0,
+    longitude: 0.0,
+    latitudeDelta: 0.02,
+    longitudeDelta: 0.02,
+  };
   useEffect(() =>{
     if (routeCoords.length > 0 && mapRef.current){
       mapRef.current.fitToCoordinates(routeCoords,{
@@ -94,68 +110,57 @@ export default function CustomMapView({routeRequest}) {
       });
     }
   },[routeCoords]);
-  const mapRegion = location ? {
-    latitude: location.coords.latitude,
-    longitude: location.coords.longitude,
-    latitudeDelta: 0.02,
-    longitudeDelta: 0.02,
-  }: defaultRegion;
   return (
     <MapView
-    ref={mapRef}
+      ref={mapRef}
       style={styles.map}
       provider={PROVIDER_GOOGLE}
-      initialRegion={mapRegion}
+      initialRegion={defaultRegion}
       showsUserLocation={true}
       showsMyLocationButton={true}
-      onRegionChangeComplete={(region) =>
-        setCenter({
-          latitude: region.latitude,
-          longitude: region.longitude
-        })
-      }
-      onLongPress={(event) => {
-        const { latitude, longitude } = event.nativeEvent.coordinate;
-        setDestination({ latitude, longitude });
-      }}
+      onRegionChangeComplete={(region) => setCenter({
+        latitude: region.latitude,
+        longitude: region.longitude
+      })}
     >
-      {location && (
+      {/* ✅ User Marker */}
+      {location?.coords && (
         <Marker
-          coordinate={{ latitude: location.coords.latitude, longitude: location.coords.longitude }}
-          title="Your Location"
-          description='IIITA'
-          pinColor='orange'
+          coordinate={{
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+          }}
+          title="You"
+          pinColor="orange"
         />
       )}
-      
-      {routeCoords.length > 0 && (
-        <Polyline
-          coordinates={routeCoords}
-          strokeColor="blue"
-          strokeWidth={4}
-        />
-      )}     
-      {points.length > 0 && (
-        points.map((point) => {
-            color = ""
-            if (point.overall_score >= 90) color = "red"
-            else if (point.overall_score >= 75) color = "orange"
-            else if (point.overall_score >= 25) color = "blue"
-            else color = "green"
 
-            return <Marker
-              key={point.location_id}
-              coordinate={{latitude: point.latitude, longitude: point.longitude}}
-              pinColor={color}
-            />
-        })
+      {/* ✅ Route */}
+      {routeCoords.length > 0 && (
+        <Polyline coordinates={routeCoords} strokeColor="blue" strokeWidth={4} />
       )}
+
+      {/* ✅ Points */}
+      {points.map((point) => {
+        let color = 'green';
+        if (point.overall_score >= 90) color = 'red';
+        else if (point.overall_score >= 75) color = 'orange';
+        else if (point.overall_score >= 25) color = 'blue';
+
+        return (
+          <Circle
+            key={point.location_id}
+            center={{ latitude: point.lat, longitude: point.long }}
+            radius={8} // in meters — scales with zoom automatically
+            strokeColor={color}
+            fillColor={color + '55'} // semi-transparent fill
+          />
+        );
+      })}
     </MapView>
   );
 }
 
 const styles = StyleSheet.create({
-  map: {
-    flex: 1,
-  },
+  map: { flex: 1 },
 });

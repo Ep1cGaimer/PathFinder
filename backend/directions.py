@@ -47,4 +47,5 @@ async def get_route(origin: str, destination: str):
     encoded_polyline = data["routes"][0]["polyline"]["encodedPolyline"]
 
     # Decode Google’s encoded polyline to [lat, lng]
+    # print(polyline.decode(encoded_polyline))
     return polyline.decode(encoded_polyline)

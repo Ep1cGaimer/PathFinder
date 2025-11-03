@@ -4,7 +4,7 @@ import {View, TextInput, TouchableOpacity, Text, StyleSheet,FlatList} from 'reac
 export default function SearchBar({origin,onOriginChange,destination,onDestinationChange,onGetRoute}){
     const [originSuggestions, setOriginSuggestions] = useState([]);
     const [destinationSuggestions, setDestinationSuggestions] = useState([]);
-    const API_BASE_URL = 'http://10.0.2.2:8000';
+    const API_BASE_URL = 'https://3a14e8e59c23.ngrok-free.app';
     const fetchSuggestions = async (text,field) =>{
         if(text.length < 3){
             field == 'origin' ? setOriginSuggestions([]) : setDestinationSuggestions([]);
@@ -68,6 +68,7 @@ export default function SearchBar({origin,onOriginChange,destination,onDestinati
                     onPress={()=>{
                         onDestinationChange(item.description);
                         setDestinationSuggestions([]);
+                        onGetRoute();
                     }}
                     >
                     <Text>{item.description}</Text>
@@ -75,9 +76,7 @@ export default function SearchBar({origin,onOriginChange,destination,onDestinati
                 )}
                 />
             )}
-            <TouchableOpacity style={styles.button} onPress={onGetRoute}>
-                <Text style={styles.buttonText}>Get Route</Text>
-            </TouchableOpacity>
+            
         </View>
     );
 }

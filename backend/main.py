@@ -153,7 +153,7 @@ async def add_post(text_descr: str = Form(...),
             ct += 1
 
     scores_llm = await asyncio.to_thread(backend_llm.get_scores, images, text_descr)
-    scores_vision = await asyncio.to_thread(backend_vision.get_scores_cv,images,text_descr)
+    scores_vision = await asyncio.to_thread(backend_vision.get_scores_cv,images)
     scores = combine_scores(scores_llm,scores_vision)
     # ATTENTION!
     # Google Maps Road API to convert given latitude-longitude to location_id needed here!
@@ -233,6 +233,7 @@ def get_nearby_scores(lat: str = Query(...),
         waterlogging: float 
         urgency_for_repair: float 
         created_at: datetime.datetime 
+        overall_score: float
 
     placeid_loc_mapping = {}
     try:
@@ -278,12 +279,14 @@ def get_nearby_scores(lat: str = Query(...),
 
             locations = db.getLocations(locationIds)
 
+            # print(placeid_loc_mapping)
             for i in range(0, len(locations)):
+                # print(placeid_loc_mapping[i]['location_id'])
                 sum_scores=float(locations[i]['surface_damage'])+float(locations[i]['traffic_safety_risk'])+float(locations[i]['ride_discomfort'])+float(locations[i]['waterlogging'])+float(locations[i]['urgency_for_repair'])
                 newLocation = NewLocationModel(
                     location_id=locations[i]['location_id'],
-                    lat=float(placeid_loc_mapping[locations[i]['location_id']]['location']['latitude']),
-                    long=float(placeid_loc_mapping[locations[i]['location_id']]['location']['longitude']),
+                    lat=float(placeid_loc_mapping[locations[i]['location_id']]['latitude']),
+                    long=float(placeid_loc_mapping[locations[i]['location_id']]['longitude']),
                     surface_damage=float(locations[i]['surface_damage']),
                     traffic_safety_risk=float(locations[i]['traffic_safety_risk']),
                     ride_discomfort=float(locations[i]['ride_discomfort']),
@@ -335,6 +338,7 @@ async def api_place_details(place_id: str = Query(...)):
 async def route(origin: str = Query(...), destination: str = Query(...)):
     try:
         points = await get_route(origin, destination)
+        # print(points)
         return {"polyline": points}
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
