@@ -1,12 +1,45 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import CustomMapView from '../src/components/MapView';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location'
+import  SearchBar  from '../src/components/SearchBar';
 
 export default function HomeScreen() {
   const router = useRouter();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [origin, setOrigin] = useState('');
+  const [destination, setDestination] = useState('');
+  const [routeRequest, setRouteRequest] = useState({
+    origin: "",
+    destination: ""
+  });
+
+  useEffect(() => {
+    (async ()=> {
+      let {status} = await Location.requestForegroundPermissionsAsync();
+      if(status !== 'granted'){
+        Alert.alert('Permission access to location was denied');
+        return;
+      }
+
+      let location = await Location.getCurrentPositionAsync({});
+      const reverseGeocode = await Location.reverseGeocodeAsync(location.coords);
+      if(reverseGeocode.length > 0){
+        const address = reverseGeocode[0];
+        setOrigin(`${address.name}, ${address.city}, ${address.region}`); //sets current location as origin
+      }
+    })();
+  },[]);
+
+  const handleGetRoute = () =>{
+    if(!origin || !destination){
+      Alert.alert('Please enter both origin and destination');
+      return;
+    }
+    setRouteRequest({origin:origin,destination:destination});
+  }
 
   const openCamera = () => {
     router.push('/camera');
@@ -62,7 +95,16 @@ export default function HomeScreen() {
           <Ionicons name="log-out-outline" size={24} color="black" />
         </TouchableOpacity>
       </View>
-      <CustomMapView />
+      <SearchBar
+        origin={origin}
+        onOriginChange={setOrigin}
+        destination={destination}
+        onDestinationChange={setDestination}
+        onGetRoute={handleGetRoute}
+        
+      />
+      
+      <CustomMapView routeRequest={routeRequest}/>
       <TouchableOpacity style={styles.cameraButton} onPress={openCamera}>
         <Ionicons name="camera" size={28} color="white" />
       </TouchableOpacity>

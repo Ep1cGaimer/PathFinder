@@ -9,6 +9,7 @@ import backend_llm
 import backend_vision
 import aiofiles
 import asyncio
+import httpx
 from dotenv import load_dotenv
 
 from dataclasses import dataclass, asdict
@@ -39,6 +40,8 @@ from pydantic import BaseModel
 from database.models import User, Location
 
 from database import db
+PLACES_AUTOCOMPLETE_URL = "https://maps.googleapis.com/maps/api/place/autocomplete/json"
+PLACES_DETAILS_URL = "https://maps.googleapis.com/maps/api/place/details/json"
 
 # just the User model with inheriting BaseModel so that we can use User model (in form of this below model) directly as function arguments.
 # see line 71.
@@ -314,10 +317,24 @@ def getPosts(location_id: str):
     else:
         return JSONResponse(content=jsonable_encoder(posts), status_code=200)
 
+@app.get("/api/autocomplete")
+async def api_autocomplete(input_text: str = Query(..., min_length=1)):
+    params = {"input": input_text, "key": GOOGLE_ROADS_API_KEY}
+    async with httpx.AsyncClient() as client:
+        response = await client.get(PLACES_AUTOCOMPLETE_URL, params=params)
+    return response.json()
+
+@app.get("/api/place_details")
+async def api_place_details(place_id: str = Query(...)):
+    params = {"place_id": place_id, "key": GOOGLE_ROADS_API_KEY, "fields": "formatted_address,geometry"}
+    async with httpx.AsyncClient() as client:
+        response = await client.get(PLACES_DETAILS_URL, params=params)
+    return response.json()
+
 @app.get("/route")
-async def route(
-    origin: str = Query(...),
-    destination: str = Query(...)
-):
-    points = await get_route(origin, destination)
-    return {"polyline": points}
+async def route(origin: str = Query(...), destination: str = Query(...)):
+    try:
+        points = await get_route(origin, destination)
+        return {"polyline": points}
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=500)

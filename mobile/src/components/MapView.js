@@ -1,15 +1,16 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef} from 'react';
 import { StyleSheet, Alert} from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE,Polyline } from 'react-native-maps';
 import * as Location from 'expo-location'
 
-export default function CustomMapView() {
+export default function CustomMapView({routeRequest}) {
   const [location,setLocation] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
   const [center, setCenter] = useState(null);
   const [destination, setDestination] = useState(null);
   const [routeCoords, setRouteCoords] = useState([]);
   const [points, setPoints] = useState([]);
+  const mapRef = useRef(null);
   const API_BASE_URL ='http://10.0.2.2:8000';
 
   useEffect(() => {
@@ -39,34 +40,32 @@ export default function CustomMapView() {
   }, [center])
 
   useEffect(() => {
-    if(destination && location){
-    const origin = `${location.coords.latitude},${location.coords.longitude}`;
-    const dest = `${destination.latitude},${destination.longitude}`;
+    if(routeRequest.origin !== "" && routeRequest.destination !== ""){
+      const origin = routeRequest.origin;
+      const destination = routeRequest.destination;
+      fetch(`${API_BASE_URL}/route?origin=${encodeURIComponent(origin)}&destination=${
+      encodeURIComponent(destination)}`)
+      .then(res => res.json())
+      .then(data => {
+        if( data.polyline && data.polyline.length > 0){
+          const coords = data.polyline.map(([lat,lng]) => ({
+            latitude: lat,
+            longitude: lng,
+          }));
+          setRouteCoords(coords);
+        }
+        else{
+          Alert.alert('Error', 'Could not find a route.');
+          setRouteCoords([]);
+        }
+      })
+      .catch(err => {
+        console.error("Error fetching route: ",err);
+        Alert.alert('Error', 'An error occured while fetching the route.');
+      });
 
-    fetch(`${API_BASE_URL}/route?origin=${origin}&destination=${dest}`)
-    .then(res => res.json())
-    .then(data =>{
-      const coords = data.polyline.map(([lat,lng]) => ({
-        latitude:lat,
-        longitude:lng
-      }));
-      setRouteCoords(coords);
-    })
-    .catch(err => {
-      console.error("Error fetching route: ",err);
-    });
     }
-  },[destination,location]);
-
-
-  const defaultRegion = {
-    latitude: 40.7128,
-    longitude: -74.0060,
-    latitudeDelta: 0.05,
-    longitudeDelta: 0.05,
-  };
-
-  
+  },[routeRequest]);
   //Accurate Location, but has some viewing issues and performance issues, disabled temporarily
   //test comment
 
@@ -81,6 +80,20 @@ export default function CustomMapView() {
   //     setLocation(location);
   //   }
   // );
+  const defaultRegion = {
+              latitude: 0.0,
+              longitude: 0.0,
+              latitudeDelta: 0.05,
+              longitudeDelta: 0.05,
+            };
+  useEffect(() =>{
+    if (routeCoords.length > 0 && mapRef.current){
+      mapRef.current.fitToCoordinates(routeCoords,{
+        edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
+        animated: true,
+      });
+    }
+  },[routeCoords]);
   const mapRegion = location ? {
     latitude: location.coords.latitude,
     longitude: location.coords.longitude,
@@ -89,9 +102,10 @@ export default function CustomMapView() {
   }: defaultRegion;
   return (
     <MapView
+    ref={mapRef}
       style={styles.map}
       provider={PROVIDER_GOOGLE}
-      region={mapRegion}
+      initialRegion={mapRegion}
       showsUserLocation={true}
       showsMyLocationButton={true}
       onRegionChangeComplete={(region) =>
@@ -113,13 +127,7 @@ export default function CustomMapView() {
           pinColor='orange'
         />
       )}
-      {destination && (
-        <Marker
-          coordinate={destination}
-          title="Destination"
-          pinColor="green"
-        />
-      )}
+      
       {routeCoords.length > 0 && (
         <Polyline
           coordinates={routeCoords}
