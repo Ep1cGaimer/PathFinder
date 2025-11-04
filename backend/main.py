@@ -11,7 +11,7 @@ import aiofiles
 import asyncio
 import httpx
 from dotenv import load_dotenv
-
+import directions
 from fastapi.responses import FileResponse
 import mimetypes
 
@@ -56,6 +56,10 @@ class RequestUserModel(BaseModel):
 
 class RequestLocationsIDModel(BaseModel):
     location_ids: List[str]
+class RouteRequest(BaseModel):
+    start: str
+    end: str
+
 
 app = FastAPI()
 #Add api calling between front end and backend here
@@ -406,3 +410,10 @@ async def route(origin: str = Query(...), destination: str = Query(...)):
         return {"polyline": points}
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
+
+@app.post("/get_directions")
+def get_directions(route_request : RouteRequest):
+    print("BACKEND INPUT:", route_request)
+    analyzed_routes = directions.get_analyzed_routes(route_request.start, route_request.end)
+    print("BACKEND ROUTES:", analyzed_routes)
+    return {"routes": analyzed_routes}

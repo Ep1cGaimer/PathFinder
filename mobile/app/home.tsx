@@ -5,6 +5,19 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location'
 import  SearchBar  from '../src/components/SearchBar';
+import { FlatList } from 'react-native';
+
+type Route = {
+  summary: string;
+  distance_meters: number;
+  duration_seconds: number;
+  road_quality_score: number;
+  pathfinder_score: number;
+  is_recommended: boolean;
+  overview_polyline: string;
+};
+
+const API_BASE_URL = 'http://10.72.90.24:8000';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -15,7 +28,10 @@ export default function HomeScreen() {
     origin: "",
     destination: ""
   });
+  const [routes, setRoutes] = useState<Route[]>([]);
+  const [selectedRoute, setSelectedRoute] = useState<Route | null>(null);
   const [goToCurrentLocation, setGoToCurrentLocation] = useState(false);
+  const [showRouteList, setShowRouteList] = useState(false);
 
   const handleLocateMe = () => {
     // toggling triggers re-render and signals map to center on location
@@ -40,13 +56,42 @@ export default function HomeScreen() {
     })();
   },[]);
 
-  const handleGetRoute = () =>{
+  const handleGetRoute = (destination: String) =>{
+    setRoutes([]);
+    setSelectedRoute(null); //clear previous alternative routes
     if(!origin || !destination){
       Alert.alert('Please enter both origin and destination');
       return;
     }
-    setRouteRequest({origin:origin,destination:destination});
-  }
+    fetch(`${API_BASE_URL}/get_directions`,{
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({start: origin, end: destination}),
+      })
+      .then(res => res.json())
+      .then(data => {
+        if(data.routes && data.routes.length > 0){
+          setRoutes(data.routes);
+          const recommendedRoute = data.routes.find((r:Route) => r.is_recommended); //make sure to fix here, need to specify type
+          setSelectedRoute(recommendedRoute || data.routes[0]);
+          setShowRouteList(true);
+        }else{
+          Alert.alert('No routes found.');
+          setRoutes([]);
+          setSelectedRoute(null);
+        }
+      })
+      .catch( err =>{
+        console.log(err);
+        Alert.alert('Error','Failed to fetch routes.');
+        setRoutes([]);
+        setSelectedRoute(null);
+      });
+    // setRouteRequest({origin:origin,destination:destination});
+  };
+
 
   const openCamera = () => {
     router.push('/camera');
@@ -99,6 +144,27 @@ export default function HomeScreen() {
     );
   };
 
+    const renderRouterItem = ({ item }: { item: Route }) =>(
+    <TouchableOpacity
+    style={[
+      styles.routeItem,
+      item.overview_polyline === selectedRoute?.overview_polyline && styles.selectedRouteItem,
+    ]}
+    onPress={() => {
+      setSelectedRoute(item);
+      setShowRouteList(false);
+    }}
+    >
+      <Text style={styles.routeSummary}>{item.summary}</Text>
+      <Text>Distance: {(item.distance_meters / 1000).toFixed(2)} km</Text>
+      <Text>Duration: {Math.round(item.duration_seconds / 60)} mins</Text>
+      <Text>Road Quality: {item.road_quality_score.toFixed(2)}</Text>
+      <Text>Pathfinder Score: {item.pathfinder_score.toFixed(2)}</Text>
+      {item.is_recommended && <Text style={styles.recommendedText}>Recommended</Text>}
+    </TouchableOpacity>
+  );
+
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -119,10 +185,20 @@ export default function HomeScreen() {
       />
 
       <CustomMapView
-      routeRequest={routeRequest}
+      routes={routes}
+      selectedRoute={selectedRoute}
       goToCurrentLocation={goToCurrentLocation}
       />
-
+      {showRouteList && routes.length > 0 &&(
+        <FlatList
+        data={routes}
+        renderItem={renderRouterItem}
+        keyExtractor={(item: Route, index: number) => index.toString()}
+        horizontal
+        style={styles.routeList}
+        showsHorizontalScrollIndicator = {false}
+        />
+      )}
       <TouchableOpacity style={styles.locationButton} onPress={handleLocateMe}>
         <Ionicons name="locate" size={24} color="#000" />
       </TouchableOpacity>
@@ -205,5 +281,29 @@ cameraButton: {
   shadowRadius: 4,
   elevation: 5,
 },
-
+routeList:{
+  position: 'absolute',
+  bottom:200, //adjust to list above other buttons
+  left: 0,
+  right: 0,
+  paddingHorizontal: 10,
+},
+routeItem: {
+      backgroundColor: 'white',
+      padding: 10,
+      borderRadius: 10,
+      marginHorizontal: 5,
+      width: 250, // Fixed width for each route item
+    },
+  selectedRouteItem: {
+      borderWidth: 2,
+      borderColor: 'blue', // Highlight color for the selected route
+    },
+    routeSummary: {
+      fontWeight: 'bold',
+    },
+    recommendedText: {
+      color: 'green',
+      fontWeight: 'bold',
+   },
 });

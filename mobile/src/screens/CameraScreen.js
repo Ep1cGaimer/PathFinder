@@ -4,7 +4,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 
-const BACKEND_URL = 'http://10.80.142.24:8000';
+const BACKEND_URL = 'http://10.72.90.24:8000';
 
 export default function CameraScreen() {
     const router = useRouter();

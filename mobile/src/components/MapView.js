@@ -2,8 +2,8 @@ import React, { useEffect, useState, useRef } from 'react';
 import { StyleSheet, Alert, Modal, View, Text, TouchableOpacity, FlatList, Image, Dimensions } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE, Polyline, Circle } from 'react-native-maps';
 import * as Location from 'expo-location';
-
-export default function CustomMapView({ routeRequest, goToCurrentLocation }) {
+import polyline from '@mapbox/polyline'
+export default function CustomMapView({ routes,selectedRoute, goToCurrentLocation }) {
   const [location, setLocation] = useState(null);
   const [points, setPoints] = useState([]);
   const [center, setCenter] = useState({ latitude: 0.0, longitude: 0.0 });
@@ -15,7 +15,7 @@ export default function CustomMapView({ routeRequest, goToCurrentLocation }) {
   const [selectedPoint, setSelectedPoint] = useState(null);
   const [isModalVisible, setModalVisible] = useState(false);
 
-  const API_BASE_URL = 'http://10.80.142.24:8000';
+  const API_BASE_URL = 'http://10.72.90.24:8000';
   // const FIXED_CENTER = { latitude: 0.0, longitude: 0.0 };
 
   // ✅ Get current location
@@ -69,37 +69,18 @@ export default function CustomMapView({ routeRequest, goToCurrentLocation }) {
   //   }
   // }, [routeRequest]);
 
-  useEffect(() => {
-    if(routeRequest.origin !== "" && routeRequest.destination !== ""){
-      const origin = routeRequest.origin;
-      const destination = routeRequest.destination;
-      fetch(`${API_BASE_URL}/route?origin=${encodeURIComponent(origin)}&destination=${
-      encodeURIComponent(destination)}`)
-      .then(res => {
-        console.log(res)
-        return res.json()
-    })
-      .then(data => {
-        console.log(data)
-        if( data.polyline && data.polyline.length > 0){
-          const coords = data.polyline.map(([lat,lng]) => ({
-            latitude: lat,
-            longitude: lng,
-          }));
-          setRouteCoords(coords);
-        }
-        else{
-          Alert.alert('Error', 'Could not find a route.');
-          setRouteCoords([]);
-        }
-      })
-      .catch(err => {
-        console.error("Error fetching route: ",err);
-        Alert.alert('Error', 'An error occured while fetching the route.');
+  useEffect(() =>{
+    if(selectedRoute && mapRef.current){
+      const coords = polyline.decode(selectedRoute.overview_polyline).map(([lat,lng])=>({
+        latitude: lat,
+        longitude: lng,
+      }));
+      mapRef.current.fitToCoordinates(coords,{
+        edgePadding: {top: 50, right: 50, bottom: 250, left: 50},
+        animated: true,
       });
-
     }
-  },[routeRequest]);
+  },[selectedRoute]);
 
   const defaultRegion = {
     latitude: 0.0,
@@ -157,11 +138,23 @@ export default function CustomMapView({ routeRequest, goToCurrentLocation }) {
           />
         )}
 
-        {/* ✅ Route */}
-        {routeCoords.length > 0 && (
-          <Polyline coordinates={routeCoords} strokeColor="blue" strokeWidth={4} />
-        )}
-
+        {routes.map((route,index) =>{
+        const isSelected = route.overview_polyline === selectedRoute?.overview_polyline;
+        const coords = polyline.decode(route.overview_polyline).map(([lat,lng])=>({
+          latitude: lat,
+          longitude: lng,
+        }));
+        return(
+          <Polyline
+            key={index}
+            coordinates={coords}
+            strokeColor={isSelected ? 'blue': 'gray'}
+            strokeWidth={isSelected ? 6:3}
+            zIndex={isSelected ? 1 : 0}
+          />
+        );
+      })}
+      
         {/* ✅ Points */}
         {points.map((point) => {
           let color = '';
