@@ -4,7 +4,7 @@ import {View, TextInput, TouchableOpacity, Text, StyleSheet,FlatList} from 'reac
 export default function SearchBar({origin,onOriginChange,destination,onDestinationChange,onGetRoute}){
     const [originSuggestions, setOriginSuggestions] = useState([]);
     const [destinationSuggestions, setDestinationSuggestions] = useState([]);
-    const API_BASE_URL = 'http://10.181.237.24:8000';
+    const API_BASE_URL = 'http://10.80.142.24:8000';
     const fetchSuggestions = async (text,field) =>{
         if(text.length < 3){
             field == 'origin' ? setOriginSuggestions([]) : setDestinationSuggestions([]);

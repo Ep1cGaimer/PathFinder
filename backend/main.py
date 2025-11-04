@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Query, File, UploadFile, Form
+from fastapi import FastAPI, Query, File, UploadFile, Form, Response, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from directions import get_route
@@ -11,6 +11,9 @@ import aiofiles
 import asyncio
 import httpx
 from dotenv import load_dotenv
+
+from fastapi.responses import FileResponse
+import mimetypes
 
 from dataclasses import dataclass, asdict
 
@@ -69,7 +72,7 @@ try:
 except KeyError:
     raise RuntimeError("Check project environment variables. Set it. It is needed to get location_id from latitude/longitude")
 
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+# app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 GOOGLE_ROADS_API_KEY = os.getenv("GOOGLE_API_KEY", "") #keep naming as google api key for consistnecy
 
@@ -82,6 +85,44 @@ def combine_scores(scores_llm, scores_vision):
         scores[key] = (v1 + v2) / 2
 
     return scores
+
+@app.get("/uploads/{folder}/{filename}")
+async def serve_upload(folder: str, filename: str):
+    # path example: uploads/upload_78e4.../0
+    file_path = os.path.join("uploads", folder, filename)
+
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File not found")
+
+    # Try to detect file type by reading a few bytes
+    mime_type, _ = mimetypes.guess_type(file_path)
+    if mime_type is None:
+        # Fallback detection by magic bytes (rudimentary)
+        with open(file_path, "rb") as f:
+            start = f.read(10)
+            if start.startswith(b"\xff\xd8"):
+                mime_type = "image/jpeg"
+            elif start.startswith(b"\x89PNG"):
+                mime_type = "image/png"
+            elif start.startswith(b"RIFF") and b"WEBP" in start:
+                mime_type = "image/webp"
+            else:
+                mime_type = "application/octet-stream"
+
+    with open(file_path, "rb") as f:
+        return Response(content=f.read(), media_type=mime_type)
+
+# @app.get("/uploads/{filename}")
+# async def get_uploaded_file(filename: str):
+#     file_path = os.path.join("uploads", filename)
+#     if not os.path.exists(file_path):
+#         return JSONResponse(content={"error": "File not found"}, status_code=404)
+    
+#     mime_type, _ = mimetypes.guess_type(file_path)
+#     if mime_type is None:
+#         mime_type = "image/jpeg"  # default fallback for your case
+    
+#     return FileResponse(file_path, media_type=mime_type)
 
 # endpoint for creating a new user 
 # Example curl:
@@ -311,14 +352,37 @@ def get_nearby_scores(lat: str = Query(...),
 # Example curl:
 # curl -X GET "http://127.0.0.1:8000/getPosts/location_id
 #      -H "Content-type: application/json"
-@app.get("/getPosts/{location_id}")
+@app.get("/getLocationDetails/{location_id}")
 def getPosts(location_id: str):
-    posts = db.getPosts(location_id=location_id)
+    # Get location avg scores
+    location = db.getLocation(location_id)
+    # Get all posts
+    posts = db.getPosts(location_id)
 
-    if len(posts) == 0:
-        return JSONResponse(content=jsonable_encoder({"message": "No posts found"}), status_code=200)
-    else:
-        return JSONResponse(content=jsonable_encoder(posts), status_code=200)
+    exists = location['location_id'] is not None
+    if not exists:
+        return JSONResponse(content=jsonable_encoder({"message": "Location Not Found"}), status_code=404)
+
+    combined = {
+        "location_id": location_id,
+        "surface_damage": location["surface_damage"],
+        "traffic_safety_risk": location["traffic_safety_risk"],
+        "ride_discomfort": location["ride_discomfort"],
+        "waterlogging": location["waterlogging"],
+        "urgency_for_repair": location["urgency_for_repair"],
+        "overall_score": (
+            location["surface_damage"]
+            + location["traffic_safety_risk"]
+            + location["ride_discomfort"]
+            + location["waterlogging"]
+            + location["urgency_for_repair"]
+        ) / 5,
+        "posts": [asdict(p) if not isinstance(p, dict) else p for p in posts]
+    }
+
+    # print(combined)
+
+    return JSONResponse(content=jsonable_encoder(combined), status_code=200)
 
 @app.get("/api/autocomplete")
 async def api_autocomplete(input_text: str = Query(..., min_length=1)):
