@@ -1,4 +1,4 @@
-import React, { useRef , useState} from 'react';
+import React, { useRef , useState , useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text, Alert, TextInput } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
@@ -15,9 +15,24 @@ export default function CameraScreen() {
     const [step, setStep] = useState(0); 
     const [desc, setDesc] = useState("");
     const [photo, setPhoto] = useState(null);
+    const [userId, setUserId] = useState(null);
     const [isCameraReady, setIsCameraReady] = useState(false);
 
    
+    useEffect(() => {
+    const initializeUser = async () => {
+      try {
+        const auth = await import('@react-native-firebase/auth');
+        const currentUser = auth.default().currentUser;
+        if (currentUser) {
+          setUserId(currentUser.uid);
+        }
+      } catch (error) {
+        console.error('Error getting user:', error);
+      }
+    };
+    initializeUser();
+  }, []);
 
   React.useEffect(() => {
     (async () => {
@@ -79,7 +94,12 @@ export default function CameraScreen() {
         sendDataToBackend(photo);
     };
 
-    const sendDataToBackend = (capturedPhoto) => {
+    const sendDataToBackend = async (capturedPhoto) => {
+        if (!userId) {
+            Alert.alert("Error", "User not authenticated. Please log in.");
+            return;
+        }
+
         const formData = new FormData();
 
         formData.append('images_bytes', {
@@ -88,34 +108,31 @@ export default function CameraScreen() {
             type: 'image/jpeg',
         });
 
-        // The user-entered description is sent here
         formData.append("text_descr", desc);
+        formData.append("user_id", userId);
 
-        //Add the location if it exists
         if (currentLocation) {
           formData.append("latitude", currentLocation.latitude.toString());
           formData.append("longitude", currentLocation.longitude.toString());
         }
 
-        fetch(`${BACKEND_URL}/addPost`, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                "Content-Type": "multipart/form-data",
-            },
-        })
-            .then(data => data.json())
-            .then(data => {
-                console.log('Success:', data);
-                Alert.alert("Upload Successful", "Image sent to backend.");
-                router.back();
-            })
-            .catch(error => {
-                console.error('Error uploading data:', error);
-                Alert.alert("Upload Failed", "Could not send image to the server.");
+        try {
+            const response = await fetch(`${BACKEND_URL}/addPost`, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    "Content-Type": "multipart/form-data",
+                },
             });
+            const data = await response.json();
+            console.log('Success:', data);
+            Alert.alert("Upload Successful", "Your report has been submitted!");
+            router.back();
+        } catch (error) {
+            console.error('Error uploading data:', error);
+            Alert.alert("Upload Failed", "Could not send image to the server.");
+        }
     };
-
 
     //renders two screens one for the camera and the second one for the description
     if(step === 1){

@@ -1,24 +1,22 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { StyleSheet, Alert, Modal, View, Text, TouchableOpacity, FlatList, Image, Dimensions } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE, Polyline, Circle } from 'react-native-maps';
+import MapView, { Marker, PROVIDER_GOOGLE, Polyline } from 'react-native-maps';
 import * as Location from 'expo-location';
-import polyline from '@mapbox/polyline'
-export default function CustomMapView({ routes,selectedRoute, goToCurrentLocation }) {
+import polyline from '@mapbox/polyline';
+
+export default function CustomMapView({ routes, selectedRoute, goToCurrentLocation }) {
   const [location, setLocation] = useState(null);
-  const [points, setPoints] = useState([]);
+  const [pointsCache, setPointsCache] = useState(new Map());
   const [center, setCenter] = useState({ latitude: 0.0, longitude: 0.0 });
   const [routeCoords, setRouteCoords] = useState([]);
   const mapRef = useRef(null);
-
-  const [posts, setPosts] = useState(null);
 
   const [selectedPoint, setSelectedPoint] = useState(null);
   const [isModalVisible, setModalVisible] = useState(false);
 
   const API_BASE_URL = 'http://10.72.90.24:8000';
-  // const FIXED_CENTER = { latitude: 0.0, longitude: 0.0 };
 
-  // ✅ Get current location
+  // ✅ Location permission
   useEffect(() => {
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -32,9 +30,11 @@ export default function CustomMapView({ routes,selectedRoute, goToCurrentLocatio
     })();
   }, []);
 
-  // ✅ Fetch points (with lat/long mapping)
+  // ✅ FETCH + CACHE points (skip when modal open)
   useEffect(() => {
     if (center.latitude === 0.0 && center.longitude === 0.0) return;
+    if (isModalVisible) return; // prevent refetch while modal open
+
     fetch(`${API_BASE_URL}/getNearbyScores?lat=${center.latitude}&long=${center.longitude}`)
       .then(res => res.json())
       .then(data => {
@@ -42,45 +42,48 @@ export default function CustomMapView({ routes,selectedRoute, goToCurrentLocatio
           const validPoints = data.locations.filter(
             p => typeof p.lat === 'number' && typeof p.long === 'number'
           );
-          setPoints(validPoints);
-          console.log(`✅ Loaded ${validPoints.length} points`);
+
+          setPointsCache(prevCache => {
+            const newCache = new Map(prevCache);
+            validPoints.forEach(point => {
+              if (!newCache.has(point.location_id)) {
+                newCache.set(point.location_id, point);
+              }
+            });
+            return newCache;
+          });
         }
       })
       .catch(err => console.error('Error fetching points:', err));
-  }, [center]);
+  }, [center, isModalVisible]);
 
-  // ✅ Fetch route if requested
-  // useEffect(() => {
-  //   if (routeRequest.origin !== "" && routeRequest.destination !=="") {
-  //     fetch(
-  //       `${API_BASE_URL}/route?origin=${encodeURIComponent(routeRequest.origin)}&destination=${encodeURIComponent(routeRequest.destination)}`
-  //     )
-  //       .then(res => res.json())
-  //       .then(data => {
-  //         console.log(data);
-  //         if (data.polyline?.length > 0) {
-  //           const coords = data.polyline.map(([lat, lng]) => ({ latitude: lat, longitude: lng }));
-  //           setRouteCoords(coords);
-  //         } else {
-  //           Alert.alert('Error', 'Could not find a route.');
-  //         }
-  //       })
-  //       .catch(err => console.error('Error fetching route:', err));
-  //   }
-  // }, [routeRequest]);
-
-  useEffect(() =>{
-    if(selectedRoute && mapRef.current){
-      const coords = polyline.decode(selectedRoute.overview_polyline).map(([lat,lng])=>({
-        latitude: lat,
-        longitude: lng,
-      }));
-      mapRef.current.fitToCoordinates(coords,{
-        edgePadding: {top: 50, right: 50, bottom: 250, left: 50},
-        animated: true,
-      });
+  // ✅ Handle marker press safely
+  const handleMarkerPress = async (point) => {
+    try {
+      if (isModalVisible) return; // prevent spam presses
+      const res = await fetch(`${API_BASE_URL}/getLocationDetails/${point.location_id}`);
+      if (!res.ok) {
+        Alert.alert("Error", "Failed to fetch location details");
+        return;
+      }
+      const data = await res.json();
+      const pointData = { ...data, lat: point.lat, long: point.long };
+      setSelectedPoint(pointData);
+      setTimeout(() => setModalVisible(true), 200); // delay modal for map stability
+    } catch (err) {
+      console.error("Error fetching details:", err);
     }
-  },[selectedRoute]);
+  };
+
+  // ✅ Debounced region change
+  const regionChangeTimeout = useRef(null);
+  const handleRegionChange = (region) => {
+    if (isModalVisible) return;
+    clearTimeout(regionChangeTimeout.current);
+    regionChangeTimeout.current = setTimeout(() => {
+      setCenter({ latitude: region.latitude, longitude: region.longitude });
+    }, 600);
+  };
 
   const defaultRegion = {
     latitude: 0.0,
@@ -88,15 +91,32 @@ export default function CustomMapView({ routes,selectedRoute, goToCurrentLocatio
     latitudeDelta: 0.02,
     longitudeDelta: 0.02,
   };
-  useEffect(() =>{
-    if (routeCoords.length > 0 && mapRef.current){
-      mapRef.current.fitToCoordinates(routeCoords,{
+
+  // ✅ Fit route
+  useEffect(() => {
+    if (selectedRoute && mapRef.current) {
+      const coords = polyline.decode(selectedRoute.overview_polyline).map(([lat, lng]) => ({
+        latitude: lat,
+        longitude: lng,
+      }));
+      mapRef.current.fitToCoordinates(coords, {
+        edgePadding: { top: 50, right: 50, bottom: 250, left: 50 },
+        animated: true,
+      });
+    }
+  }, [selectedRoute]);
+
+  // ✅ Fit routeCoords
+  useEffect(() => {
+    if (routeCoords.length > 0 && mapRef.current) {
+      mapRef.current.fitToCoordinates(routeCoords, {
         edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
         animated: true,
       });
     }
-  },[routeCoords]);
+  }, [routeCoords]);
 
+  // ✅ Current location jump
   useEffect(() => {
     if (goToCurrentLocation && location && mapRef.current) {
       const { latitude, longitude } = location.coords;
@@ -107,13 +127,13 @@ export default function CustomMapView({ routes,selectedRoute, goToCurrentLocatio
           latitudeDelta: 0.02,
           longitudeDelta: 0.02,
         },
-        1000 // smooth animation duration (1 second)
+        1000
       );
     }
   }, [goToCurrentLocation]);
 
   return (
-    <View style={{flex:1}}>
+    <View style={{ flex: 1 }}>
       <MapView
         ref={mapRef}
         style={styles.map}
@@ -121,12 +141,12 @@ export default function CustomMapView({ routes,selectedRoute, goToCurrentLocatio
         initialRegion={defaultRegion}
         showsUserLocation={true}
         showsMyLocationButton={false}
-        onRegionChangeComplete={(region) => setCenter({
-          latitude: region.latitude,
-          longitude: region.longitude
-        })}
+        scrollEnabled={!isModalVisible}
+        zoomEnabled={!isModalVisible}
+        rotateEnabled={!isModalVisible}
+        pitchEnabled={!isModalVisible}
+        onRegionChangeComplete={handleRegionChange}
       >
-        {/* ✅ User Marker */}
         {location?.coords && (
           <Marker
             coordinate={{
@@ -138,69 +158,35 @@ export default function CustomMapView({ routes,selectedRoute, goToCurrentLocatio
           />
         )}
 
-        {routes.map((route,index) =>{
-        const isSelected = route.overview_polyline === selectedRoute?.overview_polyline;
-        const coords = polyline.decode(route.overview_polyline).map(([lat,lng])=>({
-          latitude: lat,
-          longitude: lng,
-        }));
-        return(
-          <Polyline
-            key={index}
-            coordinates={coords}
-            strokeColor={isSelected ? 'blue': 'gray'}
-            strokeWidth={isSelected ? 6:3}
-            zIndex={isSelected ? 1 : 0}
-          />
-        );
-      })}
-      
-        {/* ✅ Points */}
-        {points.map((point) => {
-          let color = '';
+        {routes.map((route, index) => {
+          const isSelected = route.overview_polyline === selectedRoute?.overview_polyline;
+          const coords = polyline.decode(route.overview_polyline).map(([lat, lng]) => ({
+            latitude: lat,
+            longitude: lng,
+          }));
+          return (
+            <Polyline
+              key={index}
+              coordinates={coords}
+              strokeColor={isSelected ? 'blue' : 'gray'}
+              strokeWidth={isSelected ? 6 : 3}
+              zIndex={isSelected ? 1 : 0}
+            />
+          );
+        })}
 
+        {[...pointsCache.values()].map((point) => {
+          let color = '';
           if (point.overall_score >= 90) color = 'red';
           else if (point.overall_score >= 75) color = 'orange';
           else if (point.overall_score >= 25) color = 'blue';
           else color = 'green';
 
-          // if (color === 'green') console.log("Green: "+point.overall_score+point.location_id)
           return (
-            // <Circle
-            //   key={point.location_id}
-            //   center={{ latitude: point.lat, longitude: point.long }}
-            //   radius={8} // in meters — scales with zoom automatically
-            //   strokeColor={color}
-            //   fillColor={color + '55'} // semi-transparent fill
-            //   onPress={() => {
-            //     console.log("Clicked!");
-            //     setSelectedPoint(point);
-            //     setModalVisible(true);
-            //   }}
-            // />
             <Marker
               key={point.location_id}
               coordinate={{ latitude: point.lat, longitude: point.long }}
-              onPress={async () => {
-                try {
-                  const res = await fetch(`${API_BASE_URL}/getLocationDetails/${point.location_id}`);
-                  if (!res.ok) {
-                    Alert.alert("Error", "Failed to fetch location details");
-                    return;
-                  }
-                  const data = await res.json();
-                  // console.log(data);
-                  const pointData = {
-                    ...data,
-                    lat: point.lat,
-                    long: point.long
-                  }
-                  setSelectedPoint(pointData);
-                  setModalVisible(true);
-                } catch (err) {
-                  console.error("Error fetching details:", err);
-                }
-              }}
+              onPress={() => handleMarkerPress(point)}
             >
               <View
                 style={{
@@ -213,12 +199,10 @@ export default function CustomMapView({ routes,selectedRoute, goToCurrentLocatio
                 }}
               />
             </Marker>
-
           );
         })}
-
-        
       </MapView>
+
       <Modal
         visible={isModalVisible}
         animationType="slide"
@@ -245,60 +229,48 @@ export default function CustomMapView({ routes,selectedRoute, goToCurrentLocatio
               <Text>🚗 Traffic Safety Risk: {selectedPoint?.traffic_safety_risk?.toFixed(1) ?? "—"}</Text>
               <Text>💺 Ride Discomfort: {selectedPoint?.ride_discomfort?.toFixed(1) ?? "—"}</Text>
               <Text>💧 Waterlogging: {selectedPoint?.waterlogging?.toFixed(1) ?? "—"}</Text>
-              <Text>⚠️ Urgency: {selectedPoint?.urgency_for_repair?.toFixed(1) ?? "—"}</Text>
+              <Text>⚠ Urgency: {selectedPoint?.urgency_for_repair?.toFixed(1) ?? "—"}</Text>
             </View>
-
 
             <FlatList
               data={selectedPoint?.posts || []}
               keyExtractor={(item, index) => index.toString()}
               renderItem={({ item }) => {
-                
                 const imagePaths = Array.from(
-                   { length: item.images }, // Use the image count
-                   (_, i) => `uploads/${item.images_dir}/${i}` // Construct the path for each image
-                 );
+                  { length: item.images },
+                  (_, i) => `uploads/${item.images_dir}/${i}`
+                );
                 return (
                   <View style={styles.postCard}>
                     <Text style={styles.textDescr}>{item.text_descr}</Text>
+                    {item.posted_by && (
+                      <Text style={styles.metaText}>
+                        👤 Posted by: {item.posted_by}
+                      </Text>
+                    )}
+                    {item.created_at && (
+                      <Text style={styles.metaText}>
+                        🕒 {new Date(item.created_at).toLocaleString()}
+                      </Text>
+                    )}
 
-                      {item.posted_by && (
-                        <Text style={styles.metaText}>
-                          👤 Posted by: {item.posted_by}
-                        </Text>
-                      )}
-
-                      {item.created_at && (
-                        <Text style={styles.metaText}>
-                          🕒 {new Date(item.created_at).toLocaleString()}
-                        </Text>
-                      )}
-
-                      <FlatList
-                        horizontal
-                        data={imagePaths}
-                        keyExtractor={(img, index) => index.toString()}
-                        renderItem={({ item: img }) => {
-                            const imgUrl = `${API_BASE_URL}/${img.replace(/^\/?/, "")}`;
-                            // console.log(imgUrl)
-                          return <Image source={{ uri: imgUrl }} style={styles.postImage} />;
-                        }}
-                      />
+                    <FlatList
+                      horizontal
+                      data={imagePaths}
+                      keyExtractor={(img, index) => index.toString()}
+                      renderItem={({ item: img }) => {
+                        const imgUrl = `${API_BASE_URL}/${img.replace(/^\/?/, "")}`;
+                        return <Image source={{ uri: imgUrl }} style={styles.postImage} />;
+                      }}
+                    />
                   </View>
-                )
-                        
-              }
-                        }
-                        />
-                
-            
+                );
+              }}
+            />
           </View>
         </View>
       </Modal>
-
     </View>
-    
-    
   );
 }
 

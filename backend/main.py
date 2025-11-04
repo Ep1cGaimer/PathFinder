@@ -166,9 +166,10 @@ def search_user(name: str):
 #      -F "images_bytes=@/path/to/road1.jpg"
 #      -F "images_bytes=@/path/to/road2.jpg"
 @app.post('/addPost')
-async def add_post(text_descr: str = Form(...), 
+async def add_post(text_descr: str = Form(...),
                    latitude: str = Form(...),
                    longitude: str = Form(...),
+                   user_id: str = Form(...),
                    images_bytes: List[UploadFile] = File(...)):
     images = []
 
@@ -220,7 +221,7 @@ async def add_post(text_descr: str = Form(...),
                             ride_discomfort=scores['ride_discomfort'],
                             waterlogging=scores['waterlogging'],
                             urgency_for_repair=scores['urgency_for_repair'],
-                            posted_by='Sa12')
+                            posted_by=user_id)
     
     done = db.addPost(newLocation)
 
@@ -228,7 +229,7 @@ async def add_post(text_descr: str = Form(...),
         return JSONResponse(content=jsonable_encoder({"message": "Successful!"}), status_code=201)
     else:
         return JSONResponse(content=jsonable_encoder({"message": "Error adding the post"}), status_code=500)
-
+    
  # get a location (if it exists) from the database   
 # Example curl:
 # curl -X GET "http://127.0.0.1:8000/getLocation/location_id" 
@@ -417,3 +418,12 @@ def get_directions(route_request : RouteRequest):
     analyzed_routes = directions.get_analyzed_routes(route_request.start, route_request.end)
     print("BACKEND ROUTES:", analyzed_routes)
     return {"routes": analyzed_routes}
+
+@app.get("/getUserPosts/{user_id}")
+def get_user_posts(user_id: str):
+    posts = db.getUserPosts(user_id=user_id)
+
+    if len(posts) == 0:
+        return JSONResponse(content=jsonable_encoder({"message": "No posts found", "posts": []}), status_code=200)
+    else:
+        return JSONResponse(content=jsonable_encoder({"posts": posts}), status_code=200)

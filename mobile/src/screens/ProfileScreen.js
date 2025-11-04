@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,56 +6,86 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
+const BACKEND_URL = 'http://10.72.90.24:8000';
+
 export default function ProfileScreen() {
   const router = useRouter();
-  const [userReports] = useState([
-    {
-      id: 1,
-      location: 'Main Street, Downtown',
-      date: '2025-11-01',
-      severity: 'High',
-      description: 'Deep pothole on the main road causing traffic congestion.',
-      image: 'https://via.placeholder.com/300',
-    },
-    {
-      id: 2,
-      location: 'Park Avenue, Sector 12',
-      date: '2025-10-28',
-      severity: 'Medium',
-      description: 'Cracked asphalt near park entrance.',
-      image: 'https://via.placeholder.com/300',
-    },
-    {
-      id: 3,
-      location: 'Highway 45, Exit 7',
-      date: '2025-10-25',
-      severity: 'Low',
-      description: 'Minor road wear and tear.',
-      image: 'https://via.placeholder.com/300',
-    },
-    {
-      id: 4,
-      location: 'Lake Road, North End',
-      date: '2025-10-20',
-      severity: 'High',
-      description: 'Large sinkhole appearing near lake road intersection.',
-      image: 'https://via.placeholder.com/300',
-    },
-    {
-      id: 5,
-      location: 'Bridge Street, East Side',
-      date: '2025-10-15',
-      severity: 'Medium',
-      description: 'Multiple cracks in bridge surface.',
-      image: 'https://via.placeholder.com/300',
-    },
-  ]);
-
+  const [userReports, setUserReports] = useState([]);
   const [selectedReport, setSelectedReport] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [userData, setUserData] = useState({
+    name: 'Loading...',
+    email: 'Loading...',
+    userId: null
+  });
+
+  useEffect(() => {
+    const fetchUserDataAndPosts = async () => {
+      try {
+        const auth = await import('@react-native-firebase/auth');
+        const currentUser = auth.default().currentUser;
+
+        if (currentUser) {
+          setUserData({
+            name: currentUser.displayName || 'User',
+            email: currentUser.email || 'No email',
+            userId: currentUser.uid
+          });
+
+          const response = await fetch(`${BACKEND_URL}/getUserPosts/${currentUser.uid}`);
+          const data = await response.json();
+
+          if (data.posts && Array.isArray(data.posts)) {
+            const formattedPosts = data.posts.map(post => ({
+              id: post.id,
+              location_id: post.location_id,
+              location: post.location_id,
+              date: post.created_at,
+              severity: calculateSeverity(post),
+              description: post.text_descr || 'No description provided',
+              surface_damage: post.surface_damage,
+              traffic_safety_risk: post.traffic_safety_risk,
+              ride_discomfort: post.ride_discomfort,
+              waterlogging: post.waterlogging,
+              urgency_for_repair: post.urgency_for_repair,
+              images_dir: post.images_dir,
+              images_count: post.images
+            }));
+            setUserReports(formattedPosts);
+          } else {
+            setUserReports([]);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user posts:', error);
+        Alert.alert('Error', 'Failed to load your reports');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserDataAndPosts();
+  }, []);
+
+  const calculateSeverity = (post) => {
+    const avgScore = (
+      post.surface_damage +
+      post.traffic_safety_risk +
+      post.ride_discomfort +
+      post.waterlogging +
+      post.urgency_for_repair
+    ) / 5;
+
+    if (avgScore >= 70) return 'High';
+    if (avgScore >= 40) return 'Medium';
+    return 'Low';
+  };
 
   const getSeverityColor = (severity) => {
     switch (severity) {
@@ -100,10 +130,27 @@ export default function ProfileScreen() {
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
           <View style={styles.detailContainer}>
             <View style={styles.detailImageContainer}>
-              <View style={styles.imagePlaceholder}>
-                <Ionicons name="image-outline" size={60} color="#999" />
-              </View>
+              {selectedReport.images_count > 0 ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {Array.from({ length: selectedReport.images_count }, (_, i) => {
+                    const imgUrl = `${BACKEND_URL}/uploads/${selectedReport.images_dir}/${i}`;
+                    return (
+                      <Image
+                        key={i}
+                        source={{ uri: imgUrl }}
+                        style={styles.detailImage}
+                        onError={(e) => console.warn("Image load failed:", imgUrl)}
+                      />
+                    );
+                  })}
+                </ScrollView>
+              ) : (
+                <View style={styles.imagePlaceholder}>
+                  <Ionicons name="image-outline" size={60} color="#999" />
+                </View>
+              )}
             </View>
+
 
             <View style={styles.detailContent}>
               <View style={styles.detailHeaderInfo}>
@@ -170,6 +217,27 @@ export default function ProfileScreen() {
     );
   }
 
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <Ionicons name="arrow-back" size={24} color="#fff" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Profile</Text>
+          <View style={styles.placeholder} />
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#000" />
+          <Text style={styles.loadingText}>Loading your reports...</Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -190,8 +258,8 @@ export default function ProfileScreen() {
           </View>
 
           <View style={styles.userInfoContainer}>
-            <Text style={styles.userName}>John Doe</Text>
-            <Text style={styles.userEmail}>johndoe@example.com</Text>
+            <Text style={styles.userName}>{userData.name}</Text>
+            <Text style={styles.userEmail}>{userData.email}</Text>
           </View>
 
           <View style={styles.statsContainer}>
@@ -205,7 +273,14 @@ export default function ProfileScreen() {
         <View style={styles.reportsSection}>
           <Text style={styles.sectionTitle}>Your Reports</Text>
 
-          {userReports.map((report) => (
+          {userReports.length === 0 ? (
+            <View style={styles.emptyStateContainer}>
+              <Ionicons name="document-outline" size={60} color="#ccc" />
+              <Text style={styles.emptyStateText}>No reports yet</Text>
+              <Text style={styles.emptyStateSubtext}>Start contributing by reporting road conditions</Text>
+            </View>
+          ) : (
+            userReports.map((report) => (
             <TouchableOpacity
               key={report.id}
               style={styles.reportCard}
@@ -245,7 +320,8 @@ export default function ProfileScreen() {
                 <Ionicons name="chevron-forward" size={18} color="#000" />
               </View>
             </TouchableOpacity>
-          ))}
+          ))
+          )}
         </View>
 
         <View style={styles.bottomPadding} />
@@ -512,4 +588,41 @@ const styles = StyleSheet.create({
   bottomPadding: {
     height: 30,
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 15,
+    fontSize: 16,
+    color: '#666',
+  },
+  emptyStateContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  emptyStateText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginTop: 15,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 8,
+    textAlign: 'center',
+    paddingHorizontal: 40,
+  },
+  detailImage: {
+  width: 200,
+  height: 200,
+  borderRadius: 12,
+  borderWidth: 2,
+  borderColor: '#000',
+  marginRight: 10,
+},
 });

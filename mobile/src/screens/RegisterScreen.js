@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityInd
 import React, { useState } from 'react'
 import { useRouter } from 'expo-router';
 
-const BACKEND_URL = 'http://10.0.2.2:8000';
+const BACKEND_URL = 'http://10.72.90.24:8000';
 
 const RegisterScreen = () => {
   const [name, setName] = useState('');

@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 DB_HOST = "localhost"
-DB_NAME = "pathfinder_db"
+DB_NAME = "newpfdb"
 DB_USER = "postgres"
 
 try:
@@ -300,3 +300,42 @@ def getLocations(id: List[str]) -> List[dict]:
                 locations_list.append(asdict(location))
             
     return locations_list
+
+def getUserPosts(user_id: str) -> List[dict]:
+    posts = []
+    cur = conn = None
+    try:
+        conn = conn_pool.getconn()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        cur.execute("""SELECT p.id, p.location_id, p.images_dir, p.images, p.text_descr,
+                       p.surface_damage, p.traffic_safety_risk, p.ride_discomfort,
+                       p.waterlogging, p.urgency_for_repair, p.created_at
+                       FROM posts p WHERE p.posted_by = %s ORDER BY p.created_at DESC;""", (user_id,))
+
+        rows = cur.fetchall()
+
+        for row in rows:
+            post = {
+                'id': row['id'],
+                'location_id': row['location_id'],
+                'images_dir': row['images_dir'],
+                'images': row['images'],
+                'text_descr': row['text_descr'],
+                'surface_damage': row['surface_damage'],
+                'traffic_safety_risk': row['traffic_safety_risk'],
+                'ride_discomfort': row['ride_discomfort'],
+                'waterlogging': row['waterlogging'],
+                'urgency_for_repair': row['urgency_for_repair'],
+                'created_at': row['created_at'].strftime('%Y-%m-%d') if row['created_at'] else None
+            }
+            posts.append(post)
+    except Exception as e:
+        print("Error: ", e)
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn_pool.putconn(conn)
+
+        return posts
