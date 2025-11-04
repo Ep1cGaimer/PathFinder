@@ -52,6 +52,11 @@ export default function HomeScreen() {
     router.push('/camera');
   };
 
+  const openProfile = () => {
+    router.push('/profile');
+  };
+
+
   const handleLogout = async () => {
     if (isLoggingOut) return;
 
@@ -97,7 +102,7 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.userIconButton}>
+        <TouchableOpacity style={styles.userIconButton} onPress={openProfile}>
           <Ionicons name="person-circle-outline" size={28} color="#fff" />
         </TouchableOpacity>
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
