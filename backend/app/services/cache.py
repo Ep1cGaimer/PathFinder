@@ -9,7 +9,7 @@ from ..config import get_settings
 
 class Cache:
     def __init__(self) -> None:
-        self.client = Redis.from_url(get_settings().redis_url, decode_responses=True, socket_connect_timeout=0.5)
+        self.client = Redis.from_url(get_settings().cache_url, decode_responses=True, socket_connect_timeout=0.5)
 
     def ping(self) -> bool:
         try:

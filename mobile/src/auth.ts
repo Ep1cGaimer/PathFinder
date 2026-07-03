@@ -1,25 +1,42 @@
-import { getApps, initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createClient } from '@supabase/supabase-js';
 
-export const isFirebaseConfigured = Boolean(
-  process.env.EXPO_PUBLIC_FIREBASE_API_KEY && process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
-);
+const url = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
+const publishableKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '';
+export const isSupabaseConfigured = Boolean(url && publishableKey);
 
-const app = isFirebaseConfigured
-  ? getApps()[0] ?? initializeApp({
-      apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
-      authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
-      projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
-      storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
-      messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-      appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
-    })
-  : null;
-
-export const auth = app ? getAuth(app) : null;
+export const supabase = isSupabaseConfigured ? createClient(url, publishableKey, {
+  auth: {
+    storage: AsyncStorage,
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false,
+  },
+}) : null;
 
 export async function authToken(): Promise<string> {
-  if (__DEV__ && !auth?.currentUser) return "dev-token";
-  if (!auth?.currentUser) throw new Error("Sign in to contribute a road report");
-  return auth.currentUser.getIdToken();
+  if (__DEV__ && !supabase) return 'dev-token';
+  if (!supabase) throw new Error('Sign in is not configured');
+  const { data, error } = await supabase.auth.getSession();
+  if (error || !data.session) throw new Error('Sign in to contribute a road report');
+  return data.session.access_token;
+}
+
+export async function hasSession(): Promise<boolean> {
+  if (__DEV__ && !supabase) return true;
+  if (!supabase) return false;
+  const { data } = await supabase.auth.getSession();
+  return Boolean(data.session);
+}
+
+export async function signIn(email: string, password: string) {
+  if (!supabase) throw new Error('Supabase environment variables are not configured');
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) throw error;
+}
+
+export async function signUp(email: string, password: string) {
+  if (!supabase) throw new Error('Supabase environment variables are not configured');
+  const { error } = await supabase.auth.signUp({ email, password });
+  if (error) throw error;
 }

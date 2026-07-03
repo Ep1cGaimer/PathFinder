@@ -15,12 +15,12 @@ services:
       timeout: 5s
       retries: 10
 
-  redis:
-    image: redis:7.4-alpine
+  valkey:
+    image: valkey/valkey:9.1.0-alpine
     ports:
       - "6379:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'valkey-cli', 'ping']
       interval: 5s
       timeout: 3s
       retries: 10

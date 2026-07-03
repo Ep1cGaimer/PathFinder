@@ -1,4 +1,11 @@
-import type { Coordinate, RoadReport, RouteResponse } from "./types";
+import type {
+  Coordinate,
+  MapBounds,
+  PlaceSuggestion,
+  RoadQualitySegment,
+  RoadReport,
+  RouteResponse,
+} from "./types";
 
 export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
 
@@ -12,7 +19,8 @@ async function json<T>(response: Response): Promise<T> {
 
 export async function recommend(origin: Coordinate, destination: Coordinate): Promise<RouteResponse> {
   return json(await fetch(`${API_URL}/routes/recommend`, {
-    method: "POST", headers: { "Content-Type": "application/json" },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ origin, destination }),
   }));
 }
@@ -21,15 +29,43 @@ export async function geocode(query: string): Promise<Coordinate> {
   return json(await fetch(`${API_URL}/places/geocode?q=${encodeURIComponent(query)}`));
 }
 
-export async function nearbyReports(bounds = { min_lat: 12.90, min_lng: 77.50, max_lat: 13.05, max_lng: 77.75 }): Promise<RoadReport[]> {
-  const query = new URLSearchParams(Object.entries(bounds).map(([key, value]) => [key, String(value)]));
-  return json<{ reports: RoadReport[] }>(await fetch(`${API_URL}/reports?${query}`)).then((data) => data.reports);
+export async function autocomplete(query: string, sessionToken: string): Promise<PlaceSuggestion[]> {
+  const params = new URLSearchParams({ q: query, session_token: sessionToken });
+  return json<{ suggestions: PlaceSuggestion[] }>(
+    await fetch(`${API_URL}/places/autocomplete?${params}`),
+  ).then((data) => data.suggestions);
+}
+
+export async function nearbyRoadQuality(bounds: MapBounds): Promise<RoadQualitySegment[]> {
+  const query = new URLSearchParams(
+    Object.entries(bounds).map(([key, value]) => [key, String(value)]),
+  );
+  return json<{ segments: RoadQualitySegment[] }>(
+    await fetch(`${API_URL}/roads/quality?${query}`),
+  ).then((data) => data.segments);
+}
+
+export async function nearbyReports(
+  bounds = { min_lat: 12.90, min_lng: 77.50, max_lat: 13.05, max_lng: 77.75 },
+): Promise<RoadReport[]> {
+  const query = new URLSearchParams(
+    Object.entries(bounds).map(([key, value]) => [key, String(value)]),
+  );
+  return json<{ reports: RoadReport[] }>(
+    await fetch(`${API_URL}/reports?${query}`),
+  ).then((data) => data.reports);
 }
 
 export async function myReports(token: string): Promise<RoadReport[]> {
-  return json<{ reports: RoadReport[] }>(await fetch(`${API_URL}/reports/me`, { headers: { Authorization: `Bearer ${token}` } })).then((data) => data.reports);
+  return json<{ reports: RoadReport[] }>(
+    await fetch(`${API_URL}/reports/me`, { headers: { Authorization: `Bearer ${token}` } }),
+  ).then((data) => data.reports);
 }
 
 export async function submitReport(data: FormData, token: string): Promise<RoadReport> {
-  return json(await fetch(`${API_URL}/reports`, { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: data }));
+  return json(await fetch(`${API_URL}/reports`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: data,
+  }));
 }

@@ -8,8 +8,8 @@ psycopg[binary]==3.2.9
 alembic==1.16.2
 redis==6.2.0
 polyline==2.0.2
-firebase-admin==6.9.0
-google-cloud-storage==3.1.1
+PyJWT[crypto]==2.10.1
+boto3==1.40.1
 tensorflow-cpu==2.20.0
 numpy==2.2.6
 pillow==11.2.1
