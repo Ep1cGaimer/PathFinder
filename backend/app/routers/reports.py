@@ -110,7 +110,7 @@ async def create_report(
             temporary.write(contents)
             temporary_path = Path(temporary.name)
         assessment = await run_in_threadpool(vision_model.assess, temporary_path)
-        await run_in_threadpool(image_storage.put, image_key, contents, image.content_type)
+        await run_in_threadpool(image_storage.put, image_key, contents, image.content_type, user.token)
         report.image_key = image_key
         report.status = ReportStatus.READY
         report.assessment = RoadAssessment(report_id=report.id, **assessment)

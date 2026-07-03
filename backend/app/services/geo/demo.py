@@ -5,7 +5,6 @@ import polyline
 from ...schemas import Coordinate
 from .types import CandidateRoute, PlaceSuggestion
 
-
 PLACES = {
     'cubbon park': ('demo-cubbon', 'Cubbon Park, Bengaluru', 12.9763, 77.5929),
     'indiranagar': ('demo-indiranagar', 'Indiranagar, Bengaluru', 12.9784, 77.6408),

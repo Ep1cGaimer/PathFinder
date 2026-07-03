@@ -12,7 +12,6 @@ from app.schemas import Coordinate
 from app.services.geo.openrouteservice import OpenRouteServiceProvider
 from app.services.google_maps import maps_client
 
-
 PAIRS = [
     (Coordinate(latitude=12.9763, longitude=77.5929), Coordinate(latitude=12.9784, longitude=77.6408)),
     (Coordinate(latitude=12.9352, longitude=77.6245), Coordinate(latitude=12.9767, longitude=77.5713)),

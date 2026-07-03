@@ -10,11 +10,11 @@ The normal application path is Google-free. Google Maps API methods remain isola
 
 - MapLibre maps on web, Android, and iOS with keyless OpenFreeMap styles.
 - OpenStreetMap road geometry highlighted from red through yellow to green.
-- Up to three openrouteservice route alternatives ranked by distance, duration, and observed quality.
+- Up to three OSRM route alternatives ranked by distance, duration, and observed quality.
 - Photon or Pelias autocomplete and forward geocoding.
 - Reports snapped to canonical 50 metre OSM road segments in PostGIS.
 - Image upload, SSD MobileNet road-damage inference, and confidence-weighted quality aggregation.
-- Supabase email/password authentication and S3-compatible image storage.
+- Supabase email/password authentication and contributor-scoped image storage.
 - Valkey route caching with explicit data-version invalidation.
 - A reproducible Bengaluru data build and a fully credential-free local demo mode.
 
@@ -27,9 +27,9 @@ flowchart LR
   M --> T[OpenFreeMap or self-hosted PMTiles]
   A --> P[(PostgreSQL + PostGIS)]
   A --> V[(Valkey)]
-  A --> R[openrouteservice]
+  A --> R[OSRM]
   A --> G[Photon / Pelias]
-  A --> S[Supabase Auth + S3 Storage]
+  A --> S[Supabase Auth + Storage]
   A --> CV[SSD MobileNet]
   O[OpenStreetMap extract] --> P
   O --> R
@@ -78,7 +78,7 @@ npm ci
 npm run web
 ```
 
-The default `demo` providers require no API keys. Set `ROUTING_PROVIDER=ors` and `GEOCODING_PROVIDER=ors` with an ORS key to exercise real hosted routes. Native MapLibre requires an Expo development build, not Expo Go:
+The defaults use the public OSRM and Photon services without API keys. Set either provider to `demo` for deterministic offline UI work. Native MapLibre requires an Expo development build, not Expo Go:
 
 ```powershell
 cd mobile
@@ -102,10 +102,10 @@ Large PBF files, route graphs, search indexes, and PMTiles archives are intentio
 | Capability | Portfolio mode | Self-hosted mode |
 |---|---|---|
 | Map tiles | OpenFreeMap | PMTiles through Caddy |
-| Routing | hosted openrouteservice | local openrouteservice |
-| Search | ORS Pelias | Photon |
+| Routing | public OSRM | self-hosted OSRM |
+| Search | public Photon | self-hosted Photon |
 | Road snapping | PostGIS | PostGIS |
-| Database/Auth/Storage | hosted Supabase | self-hosted Supabase |
+| Database | Render PostgreSQL/PostGIS | PostgreSQL/PostGIS |
 | Cache | Valkey | Valkey |
 
 Free hosted services have quotas, inactivity policies, and no uptime SLA. The application exposes degraded health instead of claiming those tiers are production infrastructure.
@@ -125,7 +125,7 @@ Interactive documentation is available at `http://localhost:8000/docs`.
 
 ## Deployment
 
-Tagged releases publish the API image to GHCR and the Expo web build to GitHub Pages. A free portfolio deployment can run the API image on a Hugging Face Docker Space with hosted ORS, OpenFreeMap, and Supabase. A production-style deployment uses the same image and configuration on any Linux VM with the self-hosted services.
+Pushes to `main` deploy the Expo web client to GitHub Pages and publish the API image to GHCR. The portfolio API runs on Render with PostgreSQL/PostGIS and Valkey in Singapore; Supabase provides authentication and report-image storage.
 
 Secrets are server-only. The client receives only the API URL, map style URL, Supabase URL, and Supabase publishable key.
 
@@ -137,6 +137,6 @@ Secrets are server-only. The client receives only the API URL, map style URL, Su
 
 The model artifact comes from the University of Tokyo Sekimoto Lab [RoadDamageDetector](https://github.com/sekilab/RoadDamageDetector). See [`backend/MODEL_CARD.md`](backend/MODEL_CARD.md) for classes and limitations.
 
-Map data is © OpenStreetMap contributors under ODbL. Hosted route results require openrouteservice attribution. OpenFreeMap/OpenMapTiles attribution remains visible in the renderer.
+Map data is © OpenStreetMap contributors under ODbL. OSRM route results and map data require OpenStreetMap attribution. OpenFreeMap/OpenMapTiles attribution remains visible in the renderer.
 
 Repository code is MIT licensed. Model and dataset artifacts retain their upstream terms.

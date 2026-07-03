@@ -3,7 +3,6 @@ from dataclasses import dataclass
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-
 SNAP_SQL = text('''
     WITH point AS (
       SELECT ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326) AS geom

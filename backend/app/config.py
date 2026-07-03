@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     map_region_bbox: str = '77.35,12.75,77.85,13.20'
     google_research_enabled: bool = False
     supabase_url: str = ''
+    supabase_publishable_key: str = ''
     supabase_jwks_url: str = ''
     supabase_jwt_audience: str = 'authenticated'
     s3_endpoint_url: str = ''
@@ -34,8 +35,6 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://pathfinder:pathfinder@localhost:5432/pathfinder"
     redis_url: str = "redis://localhost:6379/0"
     google_maps_server_api_key: str = ""
-    google_cloud_storage_bucket: str = ""
-    firebase_project_id: str = "pathfinder-b5c55"
     allowed_origins: str = "http://localhost:8081,http://localhost:19006,http://127.0.0.1:4173"
     model_path: Path = Field(
         default_factory=lambda: Path(__file__).resolve().parents[2]
@@ -52,6 +51,14 @@ class Settings(BaseSettings):
     @property
     def cache_url(self) -> str:
         return self.valkey_url or self.redis_url
+    @property
+    def sqlalchemy_database_url(self) -> str:
+        """Use the installed psycopg v3 driver with provider-style Postgres URLs."""
+        if self.database_url.startswith("postgresql://"):
+            return self.database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+        if self.database_url.startswith("postgres://"):
+            return self.database_url.replace("postgres://", "postgresql+psycopg://", 1)
+        return self.database_url
 
 
 @lru_cache

@@ -11,6 +11,7 @@ from ..config import get_settings
 class AuthenticatedUser:
     id: str
     name: str
+    token: str
 
 
 @lru_cache
@@ -26,7 +27,7 @@ def require_user(authorization: str | None = Header(default=None)) -> Authentica
     token = authorization.removeprefix('Bearer ').strip()
     settings = get_settings()
     if settings.app_env == 'development' and token == 'dev-token':
-        return AuthenticatedUser(id='demo-user', name='Demo Contributor')
+        return AuthenticatedUser(id='demo-user', name='Demo Contributor', token=token)
     if not settings.supabase_url:
         raise HTTPException(status_code=401, detail='Authentication is not configured')
     try:
@@ -40,6 +41,6 @@ def require_user(authorization: str | None = Header(default=None)) -> Authentica
         )
         metadata = claims.get('user_metadata') or {}
         name = metadata.get('name') or claims.get('email') or 'Contributor'
-        return AuthenticatedUser(id=claims['sub'], name=name)
+        return AuthenticatedUser(id=claims['sub'], name=name, token=token)
     except (jwt.PyJWTError, KeyError, ValueError) as exc:
         raise HTTPException(status_code=401, detail='Invalid authentication token') from exc

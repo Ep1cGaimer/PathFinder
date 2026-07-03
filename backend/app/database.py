@@ -12,7 +12,7 @@ class Base(DeclarativeBase):
 
 settings = get_settings()
 engine = create_engine(
-    settings.database_url,
+    settings.sqlalchemy_database_url,
     pool_size=5,
     max_overflow=5,
     connect_args={"connect_timeout": 2},

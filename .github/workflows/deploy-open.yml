@@ -2,6 +2,7 @@ name: Deploy open stack
 on:
   workflow_dispatch:
   push:
+    branches: [main]
     tags: ['v*']
 permissions:
   contents: read
@@ -43,6 +44,7 @@ jobs:
           cache-dependency-path: mobile/package-lock.json
       - run: npm ci && npm run build:web
         env:
+          EXPO_PUBLIC_BASE_URL: /PathFinder
           EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL }}
           EXPO_PUBLIC_MAP_STYLE_URL: ${{ vars.EXPO_PUBLIC_MAP_STYLE_URL }}
           EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
@@ -50,6 +52,6 @@ jobs:
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: mobile/dist
+          path: mobile/dist-pages
       - id: deployment
         uses: actions/deploy-pages@v4

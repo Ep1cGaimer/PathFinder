@@ -1,6 +1,9 @@
+from unittest.mock import AsyncMock
+
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.routers import places
 
 client = TestClient(app)
 
@@ -24,7 +27,17 @@ def test_route_request_validates_distinct_points() -> None:
     assert response.status_code == 422
 
 
-def test_geocoding_returns_real_results() -> None:
+def test_geocoding_returns_provider_results(monkeypatch) -> None:
+    monkeypatch.setattr(
+        places.geocoder,
+        'geocode',
+        AsyncMock(return_value={
+            'place_id': 'osm:R:123',
+            'label': 'Koramangala, Bengaluru',
+            'latitude': 12.9352,
+            'longitude': 77.6245,
+        }),
+    )
     response = client.get("/api/v1/places/geocode", params={"q": "Koramangala"})
 
     assert response.status_code == 200

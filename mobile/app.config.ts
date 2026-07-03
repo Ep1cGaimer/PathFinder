@@ -22,6 +22,9 @@ const config: ExpoConfig = {
   },
   ios: { bundleIdentifier: "com.epicgaimer.pathfinder", supportsTablet: true },
   web: { bundler: "metro", output: "static", favicon: "./assets/images/favicon.png" },
+  experiments: {
+    baseUrl: process.env.EXPO_PUBLIC_BASE_URL || undefined,
+  },
   extra: { eas: { projectId: "475b9783-843e-4304-ab14-6d2c969150f3" } },
   owner: "epic_gaimer",
 };

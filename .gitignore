@@ -7,6 +7,8 @@ node_modules/
 # Expo
 .expo/
 dist/
+dist-pages/
+dist-verify/
 web-build/
 expo-env.d.ts
 
@@ -66,4 +68,5 @@ backend/.coverage
 backend/pytest-cache-files-*/
 # IDE
 .vscode/
+.codex/
 .venv/

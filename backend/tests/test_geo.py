@@ -1,11 +1,14 @@
-import pytest
-import httpx
 import asyncio
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
+
+import httpx
+import pytest
+
 from app.schemas import Coordinate
+from app.services.geo.demo import DemoGeoProvider
 from app.services.geo.openrouteservice import OpenRouteServiceProvider
 from app.services.geo.photon import PhotonGeocoder
-from app.services.geo.demo import DemoGeoProvider
+
 
 def test_demo_geo_provider() -> None:
     provider = DemoGeoProvider()
