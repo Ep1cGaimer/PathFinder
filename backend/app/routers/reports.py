@@ -12,6 +12,7 @@ from ..database import get_db
 from ..models import ReportStatus, RoadAssessment, RoadReport, User
 from ..services.auth import AuthenticatedUser, require_user
 from ..services.cache import cache
+from ..services.road_network import snap_to_road
 from ..services.storage import image_storage
 from ..services.vision import vision_model
 
@@ -21,9 +22,15 @@ ALLOWED_IMAGES = {"image/jpeg", "image/png", "image/webp", "image/avif"}
 
 def serialize(report: RoadReport) -> dict:
     assessment = report.assessment
-    return {
+    payload = {
         "id": str(report.id), "latitude": report.latitude, "longitude": report.longitude,
         "description": report.description, "status": report.status.value,
+        "road_place_id": report.road_place_id, "snap_status": report.snap_status,
+        "snapped_location": (
+            {"latitude": report.snapped_latitude, "longitude": report.snapped_longitude}
+            if report.snapped_latitude is not None and report.snapped_longitude is not None
+            else None
+        ),
         "is_demo": report.is_demo, "created_at": report.created_at,
         "image_url": f"/api/v1/reports/{report.id}/image" if report.image_key else None,
         "assessment": None if not assessment else {
@@ -36,6 +43,9 @@ def serialize(report: RoadReport) -> dict:
             "road_quality": assessment.road_quality, "confidence": assessment.confidence,
         },
     }
+    payload['road_segment_id'] = report.road_segment_id
+    payload['snap_distance_meters'] = report.snap_distance_meters
+    return payload
 
 
 @router.get("")
@@ -76,7 +86,19 @@ async def create_report(
     if not account:
         account = User(id=user.id, name=user.name)
         db.add(account)
-    report = RoadReport(user_id=user.id, latitude=latitude, longitude=longitude, description=description[:1000])
+    snapped = snap_to_road(db, latitude, longitude)
+    report = RoadReport(
+        user_id=user.id,
+        latitude=latitude,
+        longitude=longitude,
+        snapped_latitude=snapped.latitude if snapped else None,
+        snapped_longitude=snapped.longitude if snapped else None,
+        road_place_id=f'osm-way:{snapped.osm_way_id}' if snapped else None,
+        road_segment_id=snapped.segment_id if snapped else None,
+        snap_distance_meters=snapped.distance_meters if snapped else None,
+        snap_status="snapped" if snapped else "fallback",
+        description=description[:1000],
+    )
     db.add(report)
     db.commit()
     db.refresh(report)

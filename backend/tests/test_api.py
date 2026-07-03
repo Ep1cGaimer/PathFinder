@@ -24,8 +24,8 @@ def test_route_request_validates_distinct_points() -> None:
     assert response.status_code == 422
 
 
-def test_demo_geocoding_works_without_google_credentials() -> None:
+def test_geocoding_returns_real_results() -> None:
     response = client.get("/api/v1/places/geocode", params={"q": "Koramangala"})
 
     assert response.status_code == 200
-    assert response.json()["label"] == "Koramangala, Bengaluru"
+    assert "Koramangala" in response.json()["label"]

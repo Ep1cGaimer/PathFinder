@@ -11,19 +11,19 @@ def candidate(name: str, distance: int, duration: int) -> CandidateRoute:
 
 def test_quality_can_outweigh_small_detour() -> None:
     routes = [candidate("fast rough", 5000, 900), candidate("smooth", 5300, 960)]
-    result = score_candidates(routes, [(20, 1.0), (90, 1.0)])
+    result = score_candidates(routes, [([], 20, 1.0), ([], 90, 1.0)])
     assert result[0].summary == "smooth"
     assert result[0].is_recommended is True
 
 
 def test_sparse_quality_is_shrunk_toward_neutral() -> None:
     routes = [candidate("route", 5000, 900)]
-    result = score_candidates(routes, [(100, 0.1)])
+    result = score_candidates(routes, [([], 100, 0.1)])
     assert result[0].road_quality == 55.0
 
 
 def test_zero_coverage_is_neutral() -> None:
-    result = score_candidates([candidate("route", 5000, 900)], [(0, 0)])
+    result = score_candidates([candidate("route", 5000, 900)], [([], 0, 0)])
     assert result[0].road_quality == 50.0
 
 

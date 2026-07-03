@@ -22,6 +22,14 @@ class RouteRequest(BaseModel):
         return self
 
 
+class RoadQualitySegment(BaseModel):
+    encoded_polyline: str
+    road_quality: float | None = None
+    observation_count: int = 0
+    confidence: float = 0.0
+    status: str = "unknown"
+
+
 class RouteOption(BaseModel):
     id: str
     summary: str
@@ -31,6 +39,7 @@ class RouteOption(BaseModel):
     road_quality: float
     quality_coverage: float
     pathfinder_score: float
+    quality_segments: list[RoadQualitySegment] = Field(default_factory=list)
     is_recommended: bool = False
 
 

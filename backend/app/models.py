@@ -32,6 +32,12 @@ class RoadReport(Base):
     user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     latitude: Mapped[float] = mapped_column(Float)
     longitude: Mapped[float] = mapped_column(Float)
+    snapped_latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    snapped_longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    road_place_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    road_segment_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    snap_distance_meters: Mapped[float | None] = mapped_column(Float, nullable=True)
+    snap_status: Mapped[str] = mapped_column(String(24), default="pending")
     description: Mapped[str] = mapped_column(Text, default="")
     image_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
     status: Mapped[ReportStatus] = mapped_column(
