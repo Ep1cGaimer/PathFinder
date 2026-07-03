@@ -20,5 +20,5 @@ def health() -> dict:
         "status": "ok" if database == "ok" else "degraded",
         "version": "1.0.0",
         "database": database,
-        "redis": "ok" if cache.ping() else "unavailable",
+        'valkey': 'ok' if cache.ping() else 'unavailable',
     }

@@ -2,94 +2,141 @@
 
 **Road-aware route recommendations from crowdsourced surface reports.**
 
-Pathfinder compares Google route candidates using travel time, distance, and road quality inferred from user-submitted images. It is an Expo/React Native application backed by FastAPI, PostGIS, and Redis.
+Pathfinder compares real road-following alternatives using travel time, distance, and road quality inferred from user-submitted images. The product is an Expo/React Native client backed by FastAPI, PostgreSQL/PostGIS, Valkey, OpenStreetMap, and a pretrained SSD MobileNet model.
 
-> Release status: the production stack and deployment workflows are ready. Public web, API, and Android links are added only after the `v1.0.0` deployment and production benchmark pass.
+The normal application path is Google-free. Google Maps API methods remain isolated in a server-only research script and are never used as a silent fallback.
 
-## What it does
+## What works
 
-- Routes guests without an account; authentication is required only to contribute reports.
-- Runs a pretrained SSD MobileNet road-damage detector when a report is submitted.
-- Stores spatial observations in indexed PostGIS geography columns.
-- Samples each route corridor every 50 metres and measures quality coverage within 30 metres.
-- Ranks alternatives using 25% distance, 35% duration, and 40% coverage-adjusted road quality.
-- Caches recommendations in Redis and invalidates them when new road data becomes ready.
-- Runs as the same Expo codebase on Android and the web.
+- MapLibre maps on web, Android, and iOS with keyless OpenFreeMap styles.
+- OpenStreetMap road geometry highlighted from red through yellow to green.
+- Up to three openrouteservice route alternatives ranked by distance, duration, and observed quality.
+- Photon or Pelias autocomplete and forward geocoding.
+- Reports snapped to canonical 50 metre OSM road segments in PostGIS.
+- Image upload, SSD MobileNet road-damage inference, and confidence-weighted quality aggregation.
+- Supabase email/password authentication and S3-compatible image storage.
+- Valkey route caching with explicit data-version invalidation.
+- A reproducible Bengaluru data build and a fully credential-free local demo mode.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-  A[Expo web / Android] -->|route request| B[FastAPI on Cloud Run]
-  B --> C[Google Routes and Geocoding]
-  B --> D[(Neon PostgreSQL + PostGIS)]
-  B --> E[(Upstash Redis)]
-  A -->|authenticated image report| B
-  B --> F[SSD MobileNet inference]
-  B --> G[Cloud Storage]
-  F --> D
+  C[Expo / React Native] -->|REST| A[FastAPI]
+  C --> M[MapLibre]
+  M --> T[OpenFreeMap or self-hosted PMTiles]
+  A --> P[(PostgreSQL + PostGIS)]
+  A --> V[(Valkey)]
+  A --> R[openrouteservice]
+  A --> G[Photon / Pelias]
+  A --> S[Supabase Auth + S3 Storage]
+  A --> CV[SSD MobileNet]
+  O[OpenStreetMap extract] --> P
+  O --> R
+  O --> G
+  O --> T
 ```
 
-CV runs at ingestion time, never in the navigation hot path. Missing Redis degrades to direct computation; sparse road data is shrunk toward a neutral quality score so a single report cannot dominate a route.
+One Bengaluru OSM extract is the source for routing, autocomplete, road snapping, and the optional self-hosted basemap. That prevents geometry mismatches between the route engine and quality overlay.
+
+## Route scoring
+
+For every candidate route, PostGIS matches route pieces to canonical OSM road segments. Reports on each segment are weighted by model confidence. Sparse coverage is shrunk toward a neutral score so a single observation cannot dominate an entire route.
+
+```text
+score = 0.25 * distance_score
+      + 0.35 * duration_score
+      + 0.40 * effective_road_quality
+```
+
+The benchmark command measures the geospatial scoring query separately from external routing latency:
+
+```powershell
+cd backend
+python scripts/benchmark_geospatial.py
+```
+
+The acceptance threshold is warm p95 below 200 ms on the documented Bengaluru dataset.
 
 ## Run locally
 
-Prerequisites: Python 3.11, Node 22, Docker Desktop, and optional restricted Google/Firebase keys.
+Prerequisites: Docker Desktop, Python 3.11, Node 22.
 
 ```powershell
-Copy-Item .env.example backend/.env
-
+Copy-Item .env.example .env
 docker compose up -d
-py -3.11 -m venv .venv
-.\.venv\Scripts\python -m pip install -r backend/requirements-dev.txt
-Push-Location backend
-..\.venv\Scripts\alembic upgrade head
-..\.venv\Scripts\python -m app.seed
-..\.venv\Scripts\python -m uvicorn main:app --reload
-Pop-Location
 
-Push-Location mobile
+py -3.11 -m venv .venv
+.\.venv\Scripts\python -m pip install -r backend\requirements-dev.txt
+Push-Location backend
+..\.venv\Scripts\python -m alembic upgrade head
+Pop-Location
+.\.venv\Scripts\python -m uvicorn backend.app.main:app --reload --port 8000
+
+cd mobile
 npm ci
-npm start
+npm run web
 ```
 
-Without Google keys, the API exposes a safe Bengaluru demo for Cubbon Park, Indiranagar, Koramangala, and Majestic. Seeded observations are explicitly marked `is_demo`; they are never represented as genuine crowdsourced data.
-
-## API and verification
-
-Interactive OpenAPI documentation is available at `/docs`. The stable surface is under `/api/v1`:
-
-- `POST /routes/recommend`
-- `GET /places/geocode`
-- `GET /reports`
-- `POST /reports` (Firebase bearer token required)
-- `GET /reports/me`
-- `GET /health`
+The default `demo` providers require no API keys. Set `ROUTING_PROVIDER=ors` and `GEOCODING_PROVIDER=ors` with an ORS key to exercise real hosted routes. Native MapLibre requires an Expo development build, not Expo Go:
 
 ```powershell
-.\.venv\Scripts\python -m ruff check backend/app backend/migrations backend/tests
-.\.venv\Scripts\python -m pytest backend/tests
-Set-Location mobile
-npm run typecheck
-npm run build:web
+cd mobile
+npx expo run:android
 ```
 
-The numerical resume claim is gated by `backend/scripts/benchmark_geospatial.py`. It loads a real PostGIS query, reports p50/p95/p99, and fails if p95 reaches 200 ms. Google network latency is measured separately and is not presented as database processing time.
+## Build Bengaluru road data
 
-## Model provenance
+The reproducible files live in [`infra/osm`](infra/osm). The configured extent is `77.35,12.75,77.85,13.20`.
 
-The model artifact comes from the University of Tokyo Sekimoto Lab [RoadDamageDetector](https://github.com/sekilab/RoadDamageDetector) work. Runtime responses include its SHA-256-derived version. See [the model card](backend/MODEL_CARD.md) for classes, licensing, and limitations. It supports a recommendation heuristic; it does not certify road safety.
+1. Download Geofabrik Southern Zone OSM data.
+2. Extract the configured bounding box with Osmium.
+3. Import road ways with the checked-in osm2pgsql flex style.
+4. Run `rebuild_segments.sql` to generate approximately 50 metre segments.
+5. Build ORS, Photon, and PMTiles from that same extract.
 
-## Deployment and security
+Large PBF files, route graphs, search indexes, and PMTiles archives are intentionally excluded from Git.
 
-The repository contains Cloud Build, Cloud Run, Firebase Hosting, EAS, and keyless GitHub Actions configurations. Production uses separate API-restricted browser, Android, and server Google credentials. Populated environment files, service-account keys, generated builds, and uploads are excluded from Git.
+## Provider configuration
 
-See [deployment](docs/DEPLOYMENT.md), [performance evidence](docs/PERFORMANCE.md), and the generated [OpenAPI contract](http://localhost:8000/docs).
+| Capability | Portfolio mode | Self-hosted mode |
+|---|---|---|
+| Map tiles | OpenFreeMap | PMTiles through Caddy |
+| Routing | hosted openrouteservice | local openrouteservice |
+| Search | ORS Pelias | Photon |
+| Road snapping | PostGIS | PostGIS |
+| Database/Auth/Storage | hosted Supabase | self-hosted Supabase |
+| Cache | Valkey | Valkey |
 
-## Contributors
+Free hosted services have quotas, inactivity policies, and no uptime SLA. The application exposes degraded health instead of claiming those tiers are production infrastructure.
 
-Pathfinder began as a team project. Historical work remains attributed in Git to Vivek G, Sahil Gupta, and kr-coder24. The 2026 production architecture, routing hardening, cross-platform redesign, benchmark gate, and deployment workflow are maintained by Vivek G. This repository preserves the original collaborative history rather than rewriting it.
+## API
 
-## License
+- `GET /api/v1/health`
+- `GET /api/v1/places/autocomplete`
+- `GET /api/v1/places/geocode`
+- `POST /api/v1/routes/recommend`
+- `GET /api/v1/roads/quality`
+- `GET /api/v1/reports`
+- `POST /api/v1/reports`
+- `GET /api/v1/reports/me`
 
-MIT for repository code. The model and its training dataset retain their upstream terms; consult the model card before redistribution.
+Interactive documentation is available at `http://localhost:8000/docs`.
+
+## Deployment
+
+Tagged releases publish the API image to GHCR and the Expo web build to GitHub Pages. A free portfolio deployment can run the API image on a Hugging Face Docker Space with hosted ORS, OpenFreeMap, and Supabase. A production-style deployment uses the same image and configuration on any Linux VM with the self-hosted services.
+
+Secrets are server-only. The client receives only the API URL, map style URL, Supabase URL, and Supabase publishable key.
+
+## Optional Google research
+
+`backend/scripts/compare_google_routes.py` performs a transient ORS/Google comparison when both `GOOGLE_RESEARCH_ENABLED=true` and a restricted server key are supplied. It records aggregate latency and distance/time differences only. Google route geometry is not persisted, mixed into OSM data, or displayed on MapLibre.
+
+## Model and data attribution
+
+The model artifact comes from the University of Tokyo Sekimoto Lab [RoadDamageDetector](https://github.com/sekilab/RoadDamageDetector). See [`backend/MODEL_CARD.md`](backend/MODEL_CARD.md) for classes and limitations.
+
+Map data is © OpenStreetMap contributors under ODbL. Hosted route results require openrouteservice attribution. OpenFreeMap/OpenMapTiles attribution remains visible in the renderer.
+
+Repository code is MIT licensed. Model and dataset artifacts retain their upstream terms.
