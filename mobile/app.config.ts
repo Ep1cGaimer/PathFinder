@@ -9,6 +9,7 @@ const config: ExpoConfig = {
   userInterfaceStyle: "light",
   icon: "./assets/images/icon.png",
   plugins: [
+    '@maplibre/maplibre-react-native',
     "expo-router",
     ["expo-camera", { cameraPermission: "Use your camera to report road conditions." }],
     ["expo-image-picker", { photosPermission: "Choose a road photo to assess its condition." }],
@@ -18,7 +19,6 @@ const config: ExpoConfig = {
     package: "com.epicgaimer.pathfinder",
     permissions: ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"],
     adaptiveIcon: { foregroundImage: "./assets/images/adaptive-icon.png", backgroundColor: "#EAF1EE" },
-    config: { googleMaps: { apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY ?? "" } },
   },
   ios: { bundleIdentifier: "com.epicgaimer.pathfinder", supportsTablet: true },
   web: { bundler: "metro", output: "static", favicon: "./assets/images/favicon.png" },
