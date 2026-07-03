@@ -8,6 +8,7 @@ node_modules/
 .expo/
 dist/
 dist-pages/
+dist-*/
 dist-verify/
 web-build/
 expo-env.d.ts
