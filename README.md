@@ -134,9 +134,18 @@ Pushes to `main` deploy the Expo web client to GitHub Pages and publish the API 
 
 Secrets are server-only. The client receives only the API URL, map style URL, Supabase URL, and Supabase publishable key.
 
-## Optional Google research
+## Optional Google APIs
 
-`backend/scripts/compare_google_routes.py` performs a transient ORS/Google comparison when both `GOOGLE_RESEARCH_ENABLED=true` and a restricted server key are supplied. It records aggregate latency and distance/time differences only. Google route geometry is not persisted, mixed into OSM data, or displayed on MapLibre.
+Pathfinder also includes a server-side Google Maps adapter for Routes API route alternatives, Places Autocomplete, Geocoding, and Roads API nearest-road snapping. The deployed portfolio app uses the open OSM stack by default, while Google support remains opt-in for benchmarking or provider experiments.
+
+Set `GOOGLE_RESEARCH_ENABLED=true` and `GOOGLE_MAPS_SERVER_API_KEY` to a restricted server key, then run:
+
+```powershell
+cd backend
+python scripts/compare_google_routes.py
+```
+
+The comparison records aggregate latency and distance/time differences only. Google route geometry is not persisted, mixed into OSM data, or displayed on MapLibre. Keep browser and server credentials separately restricted in Google Cloud.
 
 ## Model and data attribution
 
