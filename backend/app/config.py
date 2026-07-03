@@ -6,6 +6,24 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    valkey_url: str = ''
+    routing_provider: str = 'osrm'
+    geocoding_provider: str = 'photon'
+    routing_base_url: str = 'https://api.openrouteservice.org'
+    geocoding_base_url: str = 'https://api.openrouteservice.org'
+    ors_api_key: str = ''
+    photon_base_url: str = 'https://photon.komoot.io'
+    map_region_bbox: str = '77.35,12.75,77.85,13.20'
+    google_research_enabled: bool = False
+    supabase_url: str = ''
+    supabase_jwks_url: str = ''
+    supabase_jwt_audience: str = 'authenticated'
+    s3_endpoint_url: str = ''
+    s3_region: str = 'auto'
+    s3_bucket: str = 'road-reports'
+    s3_access_key_id: str = ''
+    s3_secret_access_key: str = ''
+
     model_config = SettingsConfigDict(
         env_file=Path(__file__).resolve().parents[1] / ".env",
         env_file_encoding="utf-8",
@@ -30,6 +48,10 @@ class Settings(BaseSettings):
     @property
     def origins(self) -> list[str]:
         return [origin.strip() for origin in self.allowed_origins.split(",") if origin.strip()]
+
+    @property
+    def cache_url(self) -> str:
+        return self.valkey_url or self.redis_url
 
 
 @lru_cache

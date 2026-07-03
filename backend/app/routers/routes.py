@@ -14,7 +14,10 @@ async def recommend(request_body: RouteRequest, request: Request, db: Session = 
     client = request.client.host if request.client else "unknown"
     if not cache.allow(f"routes:{client}", limit=20, window_seconds=60):
         raise HTTPException(status_code=429, detail="Too many route requests")
-    response = await recommend_routes(request_body, db)
+    try:
+        response = await recommend_routes(request_body, db)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="Routing service unavailable") from exc
     if not response.routes:
         raise HTTPException(status_code=404, detail="No routes found")
     return response
