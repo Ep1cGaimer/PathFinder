@@ -1,0 +1,53 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_DB: pathfinder
+          POSTGRES_USER: pathfinder
+          POSTGRES_PASSWORD: pathfinder
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U pathfinder" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7.4-alpine
+        ports: ["6379:6379"]
+    env:
+      DATABASE_URL: postgresql+psycopg://pathfinder:pathfinder@localhost:5432/pathfinder
+      REDIS_URL: redis://localhost:6379/0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11", cache: pip, cache-dependency-path: backend/requirements-dev.txt }
+      - run: pip install -r backend/requirements-dev.txt
+      - run: alembic upgrade head
+        working-directory: backend
+      - run: python -m app.seed
+        working-directory: backend
+      - run: ruff check app migrations tests main.py
+        working-directory: backend
+      - run: pytest --cov=app --cov-report=term-missing
+        working-directory: backend
+      - run: python scripts/benchmark_geospatial.py
+        working-directory: backend
+
+  client:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: mobile } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: mobile/package-lock.json }
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run build:web
