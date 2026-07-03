@@ -45,10 +45,10 @@ jobs:
       - run: npm ci && npm run build:web
         env:
           EXPO_PUBLIC_BASE_URL: /PathFinder
-          EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL }}
-          EXPO_PUBLIC_MAP_STYLE_URL: ${{ vars.EXPO_PUBLIC_MAP_STYLE_URL }}
-          EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
-          EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          EXPO_PUBLIC_API_URL: https://pathfinder-api-0d3o.onrender.com/api/v1
+          EXPO_PUBLIC_MAP_STYLE_URL: https://tiles.openfreemap.org/styles/liberty
+          EXPO_PUBLIC_SUPABASE_URL: https://ufwomqqrotxndnxnxhqz.supabase.co
+          EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_LPDXcarUhUgGRTSEFLGaMg_J7f5BA8-
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

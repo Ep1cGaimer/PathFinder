@@ -6,6 +6,11 @@ Pathfinder compares real road-following alternatives using travel time, distance
 
 The normal application path is Google-free. Google Maps API methods remain isolated in a server-only research script and are never used as a silent fallback.
 
+**Live web app:** https://ep1cgaimer.github.io/PathFinder/
+**API documentation:** https://pathfinder-api-0d3o.onrender.com/docs
+
+
+
 ## What works
 
 - MapLibre maps on web, Android, and iOS with keyless OpenFreeMap styles.
