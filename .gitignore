@@ -45,6 +45,8 @@ mobile/*.tsbuildinfo/
 app-example
 
 #build files
+**/__pycache__/
+*.py[cod]
 
 mobile/android/
 android/
@@ -53,6 +55,15 @@ android/
 backend/__pycache__/
 backend/*.pyc
 
+
+# verification and deploy tooling
+.playwright-cli/
+output/
+.firebase/
+backend/.ruff_cache/
+backend/.pytest_cache/
+backend/.coverage
+backend/pytest-cache-files-*/
 # IDE
 .vscode/
 .venv/
