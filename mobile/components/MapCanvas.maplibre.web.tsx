@@ -100,9 +100,16 @@ export function MapCanvas(props: Props) {
 
     if (!map.getSource('quality-roads')) {
       map.addSource('quality-roads', { type: 'geojson', data: nearby });
+      map.addLayer({ id: 'quality-roads-casing', type: 'line', source: 'quality-roads', paint: {
+        'line-color': '#FFFFFF',
+        'line-width': ['interpolate', ['linear'], ['zoom'], 10, 7, 13, 10, 16, 14],
+        'line-opacity': 0.9,
+      }, layout: { 'line-cap': 'round', 'line-join': 'round' } });
       map.addLayer({ id: 'quality-roads', type: 'line', source: 'quality-roads', paint: {
-        'line-color': ['get', 'color'], 'line-width': 4, 'line-opacity': 0.78,
-      }});
+        'line-color': ['get', 'color'],
+        'line-width': ['interpolate', ['linear'], ['zoom'], 10, 4, 13, 7, 16, 11],
+        'line-opacity': 0.96,
+      }, layout: { 'line-cap': 'round', 'line-join': 'round' } });
     } else (map.getSource('quality-roads') as GeoJSONSource).setData(nearby);
 
     if (!map.getSource('pathfinder-routes')) {
