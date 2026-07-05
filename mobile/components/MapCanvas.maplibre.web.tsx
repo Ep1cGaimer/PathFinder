@@ -44,10 +44,20 @@ export function MapCanvas(props: Props) {
   const host = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markers = useRef<Marker[]>([]);
+  const onViewportChangeRef = useRef(onViewportChange);
+  const routesRef = useRef(props.routes);
+  const onSelectRouteRef = useRef(props.onSelectRoute);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    onViewportChangeRef.current = onViewportChange;
+    routesRef.current = props.routes;
+    onSelectRouteRef.current = props.onSelectRoute;
+  }, [onViewportChange, props.routes, props.onSelectRoute]);
+
+  useEffect(() => {
     if (!host.current || mapRef.current) return;
+    setReady(false);
     const map = new maplibregl.Map({
       container: host.current,
       style: process.env.EXPO_PUBLIC_MAP_STYLE_URL ?? 'https://tiles.openfreemap.org/styles/liberty',
@@ -59,14 +69,18 @@ export function MapCanvas(props: Props) {
     map.on('load', () => setReady(true));
     map.on('moveend', () => {
       const bounds = map.getBounds();
-      onViewportChange({
+      onViewportChangeRef.current({
         min_lat: bounds.getSouth(), min_lng: bounds.getWest(),
         max_lat: bounds.getNorth(), max_lng: bounds.getEast(), zoom: Math.round(map.getZoom()),
       });
     });
     mapRef.current = map;
-    return () => { map.remove(); mapRef.current = null; };
-  }, [onViewportChange]);
+    return () => {
+      setReady(false);
+      map.remove();
+      mapRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -101,8 +115,8 @@ export function MapCanvas(props: Props) {
       }});
       map.on('click', 'route-quality', (event) => {
         const routeId = event.features?.[0]?.properties?.routeId;
-        const route = props.routes.find((item) => item.id === routeId);
-        if (route) props.onSelectRoute(route);
+        const route = routesRef.current.find((item) => item.id === routeId);
+        if (route) onSelectRouteRef.current(route);
       });
       map.on('mouseenter', 'route-quality', () => { map.getCanvas().style.cursor = 'pointer'; });
       map.on('mouseleave', 'route-quality', () => { map.getCanvas().style.cursor = ''; });
