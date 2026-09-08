@@ -128,34 +128,49 @@ OSM_SEGMENT_QUALITY_SQL = text('''
         ORDER BY geom <-> ST_Centroid(input.geom)
         LIMIT 1
       ) road ON TRUE
+    ), scored AS (
+      SELECT matched.ordinal,
+        assessment.road_quality,
+        assessment.confidence,
+        assessment.confidence
+          * EXP(-EXTRACT(EPOCH FROM (now() - report.created_at)) / 15552000.0) AS weight
+      FROM matched_roads matched
+      JOIN road_reports report
+        ON report.road_segment_id = matched.segment_id AND report.status = 'ready'
+      JOIN road_assessments assessment ON assessment.report_id = report.id
     )
-    SELECT matched.ordinal,
-      SUM(assessment.road_quality * assessment.confidence)
-        / NULLIF(SUM(assessment.confidence), 0) AS road_quality,
-      COUNT(assessment.road_quality)::integer AS observation_count,
-      AVG(assessment.confidence) AS confidence
-    FROM matched_roads matched
-    LEFT JOIN road_reports report
-      ON report.road_segment_id = matched.segment_id AND report.status = 'ready'
-    LEFT JOIN road_assessments assessment ON assessment.report_id = report.id
-    GROUP BY matched.ordinal
-    ORDER BY matched.ordinal
+    SELECT ordinal,
+      SUM(road_quality * weight) / NULLIF(SUM(weight), 0) AS road_quality,
+      COUNT(road_quality)::integer AS observation_count,
+      SUM(confidence * weight) / NULLIF(SUM(weight), 0) AS confidence
+    FROM scored
+    GROUP BY ordinal
+    ORDER BY ordinal
 ''')
 
 OSM_NEARBY_SEGMENTS_SQL = text('''
-    SELECT road.segment_id,
-      ST_AsEncodedPolyline(road.geom, 5) AS encoded_polyline,
-      SUM(assessment.road_quality * assessment.confidence)
-        / NULLIF(SUM(assessment.confidence), 0) AS road_quality,
-      COUNT(assessment.road_quality)::integer AS observation_count,
-      AVG(assessment.confidence) AS confidence
-    FROM osm_road_segments road
-    JOIN road_reports report
-      ON report.road_segment_id = road.segment_id AND report.status = 'ready'
-    JOIN road_assessments assessment ON assessment.report_id = report.id
-    WHERE road.geom && ST_MakeEnvelope(:min_lng, :min_lat, :max_lng, :max_lat, 4326)
-    GROUP BY road.segment_id, road.geom
-    ORDER BY MAX(report.created_at) DESC
+    WITH scored AS (
+      SELECT road.segment_id,
+        road.geom,
+        report.created_at,
+        assessment.road_quality,
+        assessment.confidence,
+        assessment.confidence
+          * EXP(-EXTRACT(EPOCH FROM (now() - report.created_at)) / 15552000.0) AS weight
+      FROM osm_road_segments road
+      JOIN road_reports report
+        ON report.road_segment_id = road.segment_id AND report.status = 'ready'
+      JOIN road_assessments assessment ON assessment.report_id = report.id
+      WHERE road.geom && ST_MakeEnvelope(:min_lng, :min_lat, :max_lng, :max_lat, 4326)
+    )
+    SELECT segment_id,
+      ST_AsEncodedPolyline(geom, 5) AS encoded_polyline,
+      SUM(road_quality * weight) / NULLIF(SUM(weight), 0) AS road_quality,
+      COUNT(road_quality)::integer AS observation_count,
+      SUM(confidence * weight) / NULLIF(SUM(weight), 0) AS confidence
+    FROM scored
+    GROUP BY segment_id, geom
+    ORDER BY MAX(created_at) DESC
     LIMIT :limit
 ''')
 
@@ -282,12 +297,22 @@ def _score_candidate(db: Session, candidate: CandidateRoute) -> tuple[list[RoadQ
         OSM_SEGMENT_QUALITY_SQL,
         {"segments": payload, "radius": radius},
     ).all()
-    has_osm_data = any(int(row.observation_count or 0) > 0 for row in rows)
-    if not has_osm_data:
-        rows = db.execute(
+    # Blend OSM observations with proximity fallback so unsnapped reports aren't lost
+    needs_fallback = any(int(row.observation_count or 0) == 0 for row in rows)
+    if needs_fallback:
+        fallback_rows = db.execute(
             SEGMENT_QUALITY_SQL,
             {"segments": payload, "radius": radius},
         ).all()
+        fallback_map = {int(r.ordinal): r for r in fallback_rows}
+        merged_rows = []
+        for r in rows:
+            if int(r.observation_count or 0) > 0:
+                merged_rows.append(r)
+            else:
+                fb = fallback_map.get(int(r.ordinal))
+                merged_rows.append(fb if fb and int(fb.observation_count or 0) > 0 else r)
+        rows = merged_rows
     quality_segments = _merge_segments(pieces, rows)
     observed = [segment for segment in quality_segments if segment.status == "observed"]
     observed_piece_count = sum(1 for row in rows if int(row.observation_count or 0) > 0)

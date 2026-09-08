@@ -42,3 +42,28 @@ def test_geocoding_returns_provider_results(monkeypatch) -> None:
 
     assert response.status_code == 200
     assert "Koramangala" in response.json()["label"]
+
+
+def test_report_rejects_out_of_bounds_coordinates() -> None:
+    headers = {"Authorization": "Bearer dev-token"}
+    response = client.post(
+        "/api/v1/reports",
+        data={"latitude": 120.0, "longitude": 77.59, "description": "bad lat"},
+        files={"image": ("test.jpg", b"fake image bytes", "image/jpeg")},
+        headers=headers,
+    )
+    assert response.status_code == 422
+    assert "Invalid coordinates" in response.json()["detail"]
+
+
+def test_report_rejects_invalid_image_content() -> None:
+    headers = {"Authorization": "Bearer dev-token"}
+    response = client.post(
+        "/api/v1/reports",
+        data={"latitude": 12.97, "longitude": 77.59, "description": "not an image"},
+        files={"image": ("test.jpg", b"this is not real jpeg data", "image/jpeg")},
+        headers=headers,
+    )
+    assert response.status_code == 422
+    assert "not a valid image" in response.json()["detail"]
+

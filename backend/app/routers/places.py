@@ -8,9 +8,16 @@ maps_client = geocoder
 router = APIRouter(prefix="/places", tags=["places"])
 
 
+def _client_ip(request: Request) -> str:
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
 @router.get("/autocomplete")
 async def autocomplete(request: Request, q: str = Query(min_length=2, max_length=120), session_token: str | None = None):
-    client = request.client.host if request.client else "unknown"
+    client = _client_ip(request)
     if not cache.allow(f"places:{client}", limit=30, window_seconds=60):
         raise HTTPException(status_code=429, detail="Too many place searches")
     try:
@@ -20,7 +27,7 @@ async def autocomplete(request: Request, q: str = Query(min_length=2, max_length
 
 @router.get("/geocode")
 async def geocode(request: Request, q: str = Query(min_length=2, max_length=160)):
-    client = request.client.host if request.client else "unknown"
+    client = _client_ip(request)
     if not cache.allow(f"geocode:{client}", limit=20, window_seconds=60):
         raise HTTPException(status_code=429, detail="Too many location searches")
     try:

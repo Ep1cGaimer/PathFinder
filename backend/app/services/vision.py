@@ -57,7 +57,13 @@ class VisionModel:
             if scores[0][i] >= 0.4 and int(classes[0][i]) in CLASS_MAP
         ]
         weighted = [SEVERITY[item["damage_class"]] * item["confidence"] for item in detections]
-        damage = min(100.0, sum(weighted) / max(len(weighted), 1)) if weighted else 0.0
+        if weighted:
+            sorted_weights = sorted(weighted, reverse=True)
+            primary_damage = sorted_weights[0]
+            secondary_damage = sum(w * 0.15 for w in sorted_weights[1:])
+            damage = min(100.0, primary_damage + secondary_damage)
+        else:
+            damage = 0.0
         confidence = max((item["confidence"] for item in detections), default=0.0)
         return {
             "model_version": self.version, "detections": detections,

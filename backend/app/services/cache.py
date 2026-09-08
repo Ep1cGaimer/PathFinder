@@ -46,7 +46,7 @@ class Cache:
         try:
             key = f"pathfinder:rate:{bucket}"
             count = self.client.incr(key)
-            if count == 1:
+            if count == 1 or self.client.ttl(key) == -1:
                 self.client.expire(key, window_seconds)
             return count <= limit
         except RedisError:

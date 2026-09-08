@@ -1,6 +1,9 @@
+import io
 import tempfile
 import uuid
 from pathlib import Path
+
+from PIL import Image as PILImage
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
 from fastapi.concurrency import run_in_threadpool
@@ -77,11 +80,18 @@ async def create_report(
     description: str = Form(default=""), image: UploadFile = File(...),
     user: AuthenticatedUser = Depends(require_user), db: Session = Depends(get_db),
 ):
+    if not (-90.0 <= latitude <= 90.0 and -180.0 <= longitude <= 180.0):
+        raise HTTPException(status_code=422, detail="Invalid coordinates: latitude must be in [-90, 90] and longitude in [-180, 180]")
     if image.content_type not in ALLOWED_IMAGES:
         raise HTTPException(status_code=415, detail="Upload a JPEG, PNG, WebP, or AVIF image")
     contents = await image.read(10 * 1024 * 1024 + 1)
     if not contents or len(contents) > 10 * 1024 * 1024:
         raise HTTPException(status_code=413, detail="Image must be between 1 byte and 10 MB")
+    try:
+        with PILImage.open(io.BytesIO(contents)) as test_img:
+            test_img.verify()
+    except Exception:
+        raise HTTPException(status_code=422, detail="Uploaded file is not a valid image")
     account = db.get(User, user.id)
     if not account:
         account = User(id=user.id, name=user.name)
